@@ -84,4 +84,79 @@
 - Cloud native, highly available, can run in multiple regions, can use CSP's backup solution instead of manual backup.
 
 ## Creative Migration Strategies
-- 
+- Vault Core offers solution to migrate existing data into the new system with 6 key properties
+    - Data is migrated and maintained and **account level**, via APIs that support real-time sync
+    - Dependency management, can config dependencies so that we can input data in any order but it's only loaded until all dependencies are met.
+    - Load process is fully automated from API request to streamed events
+    - Real-time event streaming which can immediately provide data to downstream systems.
+    - When testing, can fast forward in time to test how the legacy products behaves against the known baseline.
+    - Strategies like Production parallel run and other migration designs based on the event streaming architecture
+
+## APIs
+- Internally, Vault Core has a microservice architecture including these smaller services:
+    - **Products and Accounts**: manages smart contracts, customer accounts (also smart contracts), chart of accounts and double-entry bookkeeping (debit and credit recording)
+    - **Flags and Parameters**: manages all parameters configured for the smart contracts
+    - **Postings and Balances**: keep tracking of fund movements, the ledger prioritizes from high to low topics. Point in time processor handles postings from scheduled events. Balances are side effects of postings.
+    - **Calendar and schedule**: manages the scheduled events defined by smart contracts.
+
+- Core API: 
+    - Account management: view accounts, open/close accounts, change status, update instance parameters of an account
+    - Product management: upload or change version of smart contracts
+    - Restriction: restrict accounts in case of lost card or malicious activities, stop accounts from being closed or updated.
+    - Smart contract simulation
+    - Internal accounts: chart of accounts
+    - Roles management: manage employee roles and service tokens 
+    - Flags: add flags to accounts or customer entities, allows to impact the accounts for custom reasons.
+- Postings API:
+    - Authorization check on accounts
+    - Settlement of funds
+    - Release of funds
+    - Posting debits and credits to Vault.
+- Streaming API:
+    - Account change events
+    - Accounting events
+    - Posting balances events
+    - Customer entity status changes
+    - Payment device events
+    - Smart contract activation, version change
+    - Configuration change.
+- Data Loader API: load data from legacy core to Vault Core. Data is loaded asynchronously via Kafka. All data is loaded throught 1 API, except for postings. It's basically an ETL pipeline. By the time the data is loaded to Vault Core, it's already extracted and transformed into an appropriate format.
+- The Postings APIs are integrated into Vault Payment processor and Vault Card processor. This is done out side of Vault Core so it's not responsible. All payment schemes and cards are integrated in the same manner.
+- Outside the payment processor and card processor, we also have our own payment/card scheme and fraud engine
+- The streaming API allows stream events to other systems like Data Warehouse. It's recommended to consume all events to get a complete picture.
+
+## Middle Tier system
+- Outside of Vault Core, can use a middle tier system to integrate with the wider banking systems like notification, authentication 
+
+## Operation Dashboard
+- Allows back office users to carry out tasks using GUI, integrated with Core API.
+- Has role based access control
+- Each action has a permission
+- Sets of permissions are grouped in to roles, each employee is assigned role.
+- It has tools to service products and accounts held in Platform Layer.
+- It can upload new or updated version of smart contracts.
+
+## Configuration data in Vault
+- There are 3 ways to deploy smart contracts to Vault Core
+    - Operation dashboard
+    - Core API
+    - Configuraiton layer utilities
+- Operation dashboard and Core API are mostly used to upload POC smart contracts
+- Most banks want to deploy new contracts via CICD pipelines using the Configuration layer utilities.
+- There are 4 types of data in Vault Core:
+    - **Financial data**: ledger, accounts data store, balances data store, this the the source of truth
+    - **Configuration data**: smart contracts, Configuration Layer Utilities is used to deploy smart contracts
+    - **Supplementary data**: data used by Vault Apps (Configuration layer???)
+    - **Service data**: data used to monitor the Vault instances, including logs and tracing.
+## Entity model
+- There are 3 types of entities in Vault Core
+    - Postings ledger: contains all fund movements
+    - Balance data store: balances are the aggregation of postings
+    - Account data store: each account is an object associated with resources that make up a bank account, including stakeholders, balances. Each account is an instance of a smart contract.
+- Postings are appended to the ledger and cannot be changed, the list of postings is the source of truth and is used to calculate the balances
+- There are 2 types of accounts: Internal and Customer account.
+- Internal accounts are not defined by Smart contracts and is used to allocate and track funds for the financial institution.
+- Each customer account can be divided into multiple addresses, each address has its balance. The balance of each address is calculated by the postings made against that address.
+- The structure of addresses is dictated by the smart contract but can also be dynamically creatd when a posting is accepted (maybe a posting that doesn't belong to any existing addresses???)
+- The net balance of an address is calculated according to the type of the account: asset or liability.
+
