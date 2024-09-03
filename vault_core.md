@@ -160,3 +160,26 @@
 - The structure of addresses is dictated by the smart contract but can also be dynamically creatd when a posting is accepted (maybe a posting that doesn't belong to any existing addresses???)
 - The net balance of an address is calculated according to the type of the account: asset or liability.
 
+# Key Resources and Data Model
+## Vault Architecture Principles
+- All objects in Vault core can be created, read, updated and deleted via Core API
+- Objects are only soft deleted
+- Objects are only appending updated, meaning a new version of an object is created.
+
+## Vault's data dictionary
+- Vault documentation hub provides the documents, tutorial for all the changes of Vault Core.
+- There are also Migration Data Dictionary, Migration Tech Deck and Migration Client Case Studies.
+- Data Dictionary provides describes the validation requirements for all API fields when a request is sent to Data Loader API or Postings Migration API. It describes how Vault treat migrated resources.
+
+## Key Account Resources
+- Beside Core, Postings and Streaming API, Vault Core also has the following APIs:
+    - Audit API: audit all incoming API requests
+    - Data Loader API: migrate legacy systems' data.
+    - Access Control API: manage roles of employees.
+
+## Smart Contract entities
+- Smart contracts are the entities that digitally enforce the agreements between the bank and customers, therefore they define the finacial behaviors of an account and how the balances are calculated.
+- All products are smart contracts and they are the finacial behaviors of an account.
+- Each product has some metadata and a product version number which points to the version of smart contract it executes.
+- Each product has multiple versions, each version can be linked to multiple customer accounts
+- All live customer accounts point to a product version in Vault Core.
