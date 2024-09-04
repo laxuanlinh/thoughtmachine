@@ -180,6 +180,67 @@
 ## Smart Contract entities
 - Smart contracts are the entities that digitally enforce the agreements between the bank and customers, therefore they define the finacial behaviors of an account and how the balances are calculated.
 - All products are smart contracts and they are the finacial behaviors of an account.
-- Each product has some metadata and a product version number which points to the version of smart contract it executes.
+- Each product has some metadata and a product version number which points to the version.
+- This product version point the Customer Account to the version of the Smart Contract it executes
 - Each product has multiple versions, each version can be linked to multiple customer accounts
+- Each product version contains the code of Smart Contract such as Metadata, parameters, events, data fetchers and hooks
 - All live customer accounts point to a product version in Vault Core.
+- A product can be upgraded to the latest version of the smart contract.
+
+## Account Data Model
+- Thought Machine doesn't have CRM and only provides an external ID field to connect with external CRM systems.
+- Vault Core provides some fields like first name and last name if necessary.
+- A customer can be linked to multiple accounts, an account can also have multiple customers linked via the field stakeholders.
+- An account contains the monetary data and metadata includes:
+    - Opening date
+    - Stakeholders
+    - Instance parameters
+    - Linked payment devices
+    - Account details, follows key-value structure to capture custom data.
+- Update accounts via Account Update API
+- Not all updates to accounts can be done synchronously, because some of them require smart contract code to be run. These updates include
+    - Change instance parameters because it requires *pre_parameter_change_code* to be run
+    - Change product version because it requires *upgrade_code* to be run
+- All customer accounts have at least 1 balance.
+- Balances are calculated using 4 dimensions
+    - **Asset type** (Commercial bank money or another asset type)
+    - **Denomination** (currencies like USD, SGD)
+    - **Address**, address maybe where to track interest or to store sub-pots for saving or where the bank can track fees 
+    - **Phase**, there are 3 phases *Incoming*, *Outgoing* and *Committed*
+- Balances have 3 attributes:
+    - Total debit
+    - Total credit
+    - Net: depending on the type (T-side) of the account Asset or Liability
+
+## Payment devices
+- Payment devices provides external account ID
+- Customers can select account to charge using a single card, customer can route the payment to multiple accounts and can 1 account can have unlimited number of supplementary cards
+- A payment device can be email, card, account number, phone number, physical payment device ...
+- A payment device can link to 1 or multiple accounts using unique Payment Device Links
+- Each link has a token that can be used to identify the links and make postings to.
+- Multiple devices linking to the same account can share 1 token with each device having status Active or Inactive.
+- Or each link can have a unique token created by external systems to enable
+
+## Posting Instruction batches
+- Posting Instruction batches represent the movements of funds between accounts.
+- A single Posting Instrcution batch is made up of many Posting instruction.
+- A Posting instruction always contains at least 2 postings, credit and debit.
+- Higher level concepts like transactions and payments are just made up of postings, for example transactions are made up of 2 or more postings
+- If we need to reverse or correct a posting, we have to make new backdated postings
+
+## Internal accounts
+- Internal accounts are internal accounts of the bank, it shows how much money the bank owns
+- It's used on the Vault ledger to meet accounting requirements
+- Internal accounts don't use smart contracts liks Customer accounts with any metadata, it only uses a blank Smart contract to maximize performance.
+- Internal accounts are not associated with a customer entity, they're owned by the bank itself
+
+## Audit entities
+- Audit module tracks requests and effects of those requests on the resources in Vault Core.
+- The audit events can be accessed via REST API or Kafka (Audit Streaming API)
+- Audit logs record all incoming requests and responses
+- Action logs record the action that these requests perform on the entities in Vault Core such as accounts or payments and the information changed by these actions.
+- Both log types are immutable and can be acccessed via REST API or Audit Streaming API, they can also be viewed from Operation Dashboard.
+- Audit logs are kept for some time while Action logs are kept indefinitely.
+- While Audit logs remove sensitive information like tokens, it won't remove things like balances, postings or account data.
+- We need to use policies to limit the number of users who can view the Audit logs.
+
