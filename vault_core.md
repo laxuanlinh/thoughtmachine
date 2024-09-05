@@ -206,7 +206,7 @@
     - **Asset type** (Commercial bank money or another asset type)
     - **Denomination** (currencies like USD, SGD)
     - **Address**, address maybe where to track interest or to store sub-pots for saving or where the bank can track fees 
-    - **Phase**, there are 3 phases *Incoming*, *Outgoing* and *Committed*
+    - **Phase**, there are 3 phases *Incomding*, *Outgoing* and *Committed*
 - Balances have 3 attributes:
     - Total debit
     - Total credit
@@ -243,4 +243,112 @@
 - Audit logs are kept for some time while Action logs are kept indefinitely.
 - While Audit logs remove sensitive information like tokens, it won't remove things like balances, postings or account data.
 - We need to use policies to limit the number of users who can view the Audit logs.
+
+# Financial Principles
+- Unified Postings API
+- Consistency of Financial state
+- Ability to model complex processes
+## Financial records
+- A financial record in Vault Core consists of of 3 components:
+    - Postings
+    - Balances
+    - Accounts
+- A posting is a debit or credit, postings are appended to the Ledger which is the source of truth
+- A balance is the sum of all postings and is stored against an address. Net balance is computed according to address type: asset or liability
+- A customer account is partitioned in to addresses, each address has a balance. The structure of an account is dictated by the smart contract but addresses can also be dynamically spawned when it's targeted by postings that are accepted against the account.
+
+## Unified Postings API
+- Postings are communicated via Postings API which is Kafka based and request-reply model
+- Vault Core exposes only 1 API for Postings which can handle all complex posting data, within 1 account, between 2 accounts or with external accounts
+- External integration will also use Postings API such as Card Payment or Inter-bank transfer
+- Vault Services will also use Postings API for on-Vault Posting (???) such as accrual of interest or accrual of typical fees on an account.
+
+## Consistency of Financial state
+- All postings are immutable 
+- Postings are the lowest level of Customer facing transactions. Each payment or trasactions can have more than 1 postings
+- The Postings API ensures that each request has a balanced set of debit and credit (what does this mean???) to follow the double entry bookkeeping model.
+
+## Ability to model complex processes
+- There are many posting types such as Authorization, Settlements...
+- These types can be used to model complex processes such as Card transactions, authorization of funds, transfer...
+- The benefit of using posting types is that we can add logic such as during Card transactions, authorization has to happen before settlement.
+
+## Posting objects
+- There are 3 types of objects when dealing with Postings API
+    - Posting: the smallest object, represents debit or credit, it also has asset type (Commercial bank, reward point ...), denomination (currency), amount, account ID/address, phase
+    - Posting instruction: the building block of any transaction, it contains 1 or more Postings, it also contains type such as Inbound/Outbound authorization, Release/Settlement, Adjustment, Transfer and Custom Instructions
+    - Posting instruction batch: contains 1 or more Posting instructions, if 1 of these instructions fails, the whole batch will fail. The batch captures the result of the instruction being posted, either accepted or rejected
+
+## Posting types
+- There are 9 posting types, can be divided further into 2 categories Standalone (s) or Chainable (c)
+
+### Outbound and Inbound authorization (c)
+- Put funds on hold and exepected to be settled or alternatively released later
+- Vault usually moves funds from sender balance pending phase to recepient's balance pending phase.
+- Depending on the type Inbound/Outbound, the phase could be Pending Incoming or Pending Outgoing.
+- For example when we buy fuel at a gas station, upon reading the card with authorized amount we can spend, Vault moves the funds with posting type Pending Outgoing from our account to the station's account. Once we have pumped enought fuel, a Settlement posting type should follow to cover the actual cost of the fuel.
+
+### Authorisation Adjustment (c)
+- Used to increase the amount of previous pending authorized funds, this will change the total amount of a transaction
+- For example if a customer decides to stay in a hotel a bit longer, the hotel can send an Authorisation Adjustment posting to increase the amount of the transaction. At the end of the customer's stay, the total amount is the authorized amount + the Authorisation Adjustment amount.
+- It can also reverse the hold status of a Inbound/Outbound fund that was previously authorized.
+
+### Settlement (c)
+- Settlement posting is to move the pending funds to the committed state.
+- A Settlement posting has to be linked to a Inbound/Outbound authorization posting so that it can move the fund of this posting to Committed.
+- We can settle more or less the amount that has been authorized before.
+- If we need to settle less, Vault will do a Release posting the remaining balance.
+- For example when a customer makes a transaction online, the scheme first submits the authorized account with a Pending Outgoing posting. Then a scheme will submit a clearing request to debit the money from the customer's account. 
+
+### Release
+- Release postings reduce the amount of pending fund to zero, meaning it releases the transaction.
+- A Release posting has to be linked to a Inbound/Outbound authorization posting.
+- No posting can follow a Release posting because it closes the transaction.
+
+### Transfer Posting
+- This posting type debits a fund from an account and credits it to another account, effectively create 2 postings
+- Transfer postings transfer the funds from committed phase of sender's balance to committed phase of recepient's balance.
+- Transfer type is used to facilitate the transfer of funds usually between accounts of the same customer or bank.
+
+### Inbound/Outbound Hard Settlement
+- Hard settlment allows to transfer money from committed phase of 1 account balance to another account balance's committed phase without any prior authorization.
+- This posting type doesn't expect any further modification of the transaction.
+- It can also be used to debit or credit funds to an internal account, follows the double entry model
+- It allows to specify whether it's an inbound to the customer's account or an outbound from the customer's account - usually to an internal account.
+- Hard settlement can be used in Stand-in payment, when a Payment Gateway cannot connect to the Payment hub despite the authorizatoin and settle postings are accepted, then the Gateway can operate in Stand-in or Offline mode, meaning it accepts the payment and later when the Hub comes back online, it can make a Hard Settlement posting
+- Another usecase is to reverse a payment or to refund.
+
+### Custom instruction
+- Custom instruction type can move funds from any account, any address, any phase to other accounts. It should be able to satisfy the remaining usecases that the other types cannot.
+- To create Custom instruction, we can use Postings API or the Smart Contract itself.
+- An example of this is to calculate daily and monthly accrued interest. Another example is Annual fee charged to a credit card
+- A popular options for saving is to allow creation of many Saving pots within a Saving account, each pot has its own interest. This will create many addresses within the account and requires Custom instructions to move money between them.
+
+## Postings lifecycle
+- A customer initiates a payment via their bank app
+- The Payment hub receives the message and call the Postings API to authorize the payment
+- The Payment hub then exchanges messages with the Payment scheme, if all messages are sucessful then it call the Posting API to settle the payment.
+
+## Balances
+- There are 2 types of balance: Balance resource and Ledger balance resource.
+- Balance resource is used by smart contract to process payments or calculate interest.
+- Ledger balance resource is used to show the state of customer account's balance, internal account's balance and provide a snapshot of the Ledger. It's also used at the end of accounting, reconciliation and reporting cycle
+- Different products require different ways to calculate the balances and how the accounts are partitioned.
+- The architecture of Vault Core also allows the accounts to be dynamically partitioned into smaller addresses
+
+## Balance details
+- Balances are calculated across 4 parameters:
+    - Asset type: commercial bank or reward point or something else
+    - Denominaton: any currencies in the world or even fake currencies like Hilton Hotel Point or Avios Air Miles
+    - Address: each address is a partition of the total balance. Each has its own balance and interest. For example it could be used to accrue interest or to save money for Car, Vacation ...
+    - Phase: there are 3 phases Pending Outgoing, Pending Incoming and Committed. This allows the account to divide the account balances into funds available for authorizaion and pending.
+- Balances are calculated using 3 properties
+    - Total Debit
+    - Total Credit
+    - Net.
+- Net are calculated based on the T-side (whether it's Asset or Liability)
+- If Asset then Net = Debit - Credit
+- If Liability then Net = Credit - Debit
+
+
 
