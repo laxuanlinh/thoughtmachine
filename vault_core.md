@@ -337,18 +337,31 @@
 - The architecture of Vault Core also allows the accounts to be dynamically partitioned into smaller addresses
 
 ## Balance details
-- Balances are calculated across 4 parameters:
+- Balances are calculated across 4 dimensions, this allows any account structured to be represented:
     - Asset type: commercial bank or reward point or something else
     - Denominaton: any currencies in the world or even fake currencies like Hilton Hotel Point or Avios Air Miles
     - Address: each address is a partition of the total balance. Each has its own balance and interest. For example it could be used to accrue interest or to save money for Car, Vacation ...
-    - Phase: there are 3 phases Pending Outgoing, Pending Incoming and Committed. This allows the account to divide the account balances into funds available for authorizaion and pending.
+    - Phase: there are 3 phases that funds are stored in an address Pending Outgoing, Pending Incoming and Committed, depending on where they are during payment lifecycle.
 - Balances are calculated using 3 properties
     - Total Debit
     - Total Credit
     - Net.
-- Net are calculated based on the T-side (whether it's Asset or Liability)
+- Net are calculated based on the T-side (whether it's Asset or Liability), *T-side* is determined within *Smart Contract*
 - If Asset then Net = Debit - Credit
 - If Liability then Net = Credit - Debit
+- If we select the balance sheet, we can see there are a lot of accounts, Customer and Internal, they all follow the same account model.
+- Customer account can be personal loan, mortgage or saving.
+- For example: 
+    - Account A has 2 asset types: Commercial Bank Money and Reward Points
+    - Inside the Commercial Bank Money, we see multiple denominations USD, SGD, GBP
+    - Each denomination consists of mulitple addresses: Available balance, Fee owned, Intereste charged...
+    - Each address has 3 phases: Incoming Penidng , Outgoing pending and Committed
+    - The denomination USD, address Avaialble Balance, there are 5000 USD in the Committed phase, this means the customer has 5000USD to spend
+
+## Double Entry Bookkeeping
+- Vault uses double entry bookkeeping system, meaning each entry of credit has to be followed by 1 or more entries of debits with the equal total amount in either the Customer account or Internal account and vice-versa.
+- 
+
 
 
 
