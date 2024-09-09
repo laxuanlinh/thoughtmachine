@@ -360,7 +360,44 @@
 
 ## Double Entry Bookkeeping
 - Vault uses double entry bookkeeping system, meaning each entry of credit has to be followed by 1 or more entries of debits with the equal total amount in either the Customer account or Internal account and vice-versa.
-- 
+- Example: A customer puts down 100 USD to reserve at a hotel
+- Vault posts a Authorization posting of 100 USD from Pending Outgoing phase of the customer's balance to the Internal account.
+- The customer then wants to extend the stay so the Vault posts Authorization Adjust posting of 50 USD from the Pending Outgoing phase to the Internal Account.
+- Finally the customer checks out at the hotel and uses the credit card to settle the money. Vault use Settlement posting type for this.
+
+## Value Dating and Back Dating
+- Normally, postings are generated and applied immediately to calculate the balances. Each time a posting is generated, balances are recalculated thus creating a series of balances and allows to take a snapshot of historical balanaces at a point of time.
+- However there are times when we need to go back in time and adjust the postings.
+- To do this, we need timestamp, there are 3 types of timestamp:
+    - *insertion_timestamp*: is when Vault processes a posting and persists in the database. Vault always sets this value, for reporting purposes
+    - *value_timestamp*: is when the fund should have moved between accounts. It can be set by Vault or client, depending on where it comes from. The *value_timestamp* is <= *insertion_timestamp*
+    - *booking_timestamp*: is when the posting is booked. By default, Vault sets this value based on the *value_timestamp* given that the booking period is still open, if not then it sets the *booking_timestamp* to *insertion_timestamp*. It's possible to override the default value by setting this value explicitly, the value has to be between *value_timestamp* and *insertion_timestamp*
+- To set back date posting, create a posting with value_timestamp in the past. Vault will append this back date posting to the ledger and take this posting into account when calculating balances.
+- Recalculation of interest, fees that has resulted from external API calls or scheduled events will have to handled separately.
+- It's recommended to use the Simulation API to calculate what the balance should be, then make the back date postings to adjust.
+- The event of back date posting is streamed out via Streaming API.
+- Example:
+    - On Day 1 (D1), at 22:00, Vault receives a credit of $100, Vault is the Source of Truth so it sets the timestmaps as follow:
+        - insertion_timestamp: 22:00
+        - value_timestamp: 22:00 (matches with insertion_timestamp)
+        - booking_timestamp: 22:00 (matches with value_timestamp)
+        - booking period: D1
+    - On Day 2 (D2), at 00:10, Vault receives a debit of $10 at 00:09, Vault is now the System of record:
+        - insertion_timestamp: 00:10
+        - value_timestmap: 00:09 (the actual timestamp when the posting is made)
+        - booking_timstamp: 00:09 (matches the value_timestamp)
+        - booking period: D2
+    - D2, 00:15, debit $20 at 23:55 D1. This is a late posting with booking period of D1, the client manually sets the booking_timestamp to 23:55 D1, Vault still accepts it because D1 has not cut off yet.
+        - insertion_timestmap: 00:15
+        - value_timestamp: 23:55 D1
+        - booking_timestamp: 23:55 D1
+        - booking period: D1
+    - D2: 01:10, debit $10 at 23:50 D1. This is too late and there is no manual booking_timestamp, the D1 period has already closed, Vault sets the booking period to insertion_timestamp D2
+        - insertion_timestamp: 01:10
+        - value_timestamp: 23:50 D1
+        - booking_timestamp: 01:10 D2 (matches the insertion_timestamp because booking period is closed, no manual override)
+        - booking period: D2
+
 
 
 
