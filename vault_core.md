@@ -398,7 +398,29 @@
         - booking_timestamp: 01:10 D2 (matches the insertion_timestamp because booking period is closed, no manual override)
         - booking period: D2
 
+# Product and Integration libraries
+## Product library
+- Designed to provide configurable, feature rich smart contract using best practices
+- Testing libraries include unit test, integration testing and simulation
+- Clients have access to pre-built smart contracts ready to be deployed, can be easily configured to meet differnet
+- Smart Contract Framework provides the ability to cater the whole suite of lending solutions for all financial instutitions, banks ...
+- Interest rate can be configured to be accrual, fixed, variable rate, positive or negative rates
+- Support multi currency accounts, overdraft protection...
+- To access product library, go to Enablement portal.
 
+## Integration library
+- Degisned to accelarate go live process
+- Currently the Integration library has not been updated to use the latest features of Vault Core 5.
+- Includes integration builds by Thought Machine and by other vendors.
+- Similar to Product library, all builds are easy to configured, built with best practices, include testing libraries to unit test and end to end test. 
+- It's free if clients have signed Master Service Aggreement.
+- Use the Integration library to integrate with trusted vendors like Transfer Wise, Oracle, Salesforce...
+- The ecosystem of integration builds are divided into 6 segments: Moving money, Data and analytics, Customer knowledge, Customer channels, Infrastructure tooling and 
+- All platform functionalities are exposed via a standard set of APIs.
+- For example: For Google BigQuery, Thought Machine has built an integration library that allows clients to use this servie to digest big data from different sources and take advantage of its machine learning, BI tools and its add-on
+- Another example: Moneythor is a vendor that can offer personalized money management, providing recommendations based on customers' purchases and behaviors. If a customer buy from KFC or McDonald, their merchant codes are captured from the postings and recommendations appear on the mobile app. It can also recommends to use overdraft if eligible or alert the customer that the upcoming bill is not affortable.
+- To do this, separate Kafka topics are consumed by integration service for accounts, postings and balances events, these events are transformed into messages and pushed to Moneythor via Kafka again.
+- All documentation about all integration is maintained in Enablement portal.
 
 
 
