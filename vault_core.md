@@ -422,5 +422,54 @@
 - To do this, separate Kafka topics are consumed by integration service for accounts, postings and balances events, these events are transformed into messages and pushed to Moneythor via Kafka again.
 - All documentation about all integration is maintained in Enablement portal.
 
+# Core Streaming
+## Streaming API overview
+- There are 2 types of API: REST API for synchronous and Streaming API for asynchronous.
+- Streaming API is based on Kafka
+- All Vault components have outbound a streaming API which uses push mechanism to stream their state changes in near real time 
+- Each event type like Posting or balance update has a dedicated topic so that external system can subscribe to.
 
+## Challenges of legacy systems
+- No real-time, cannot scale to retrieve large amount of data, batch processing results in poor performance and downtime, tight coupling with internal database model and slow to change.
+- Vault Streaming API offers near real-time updates, can scale thanks to Kafka that can stream events to many consumers, no downtime because Kafka streams events in real time to external services and no competition between reporting/analytics and transactional processing, decouples internal database model from events and allows faster change adaptation.
+
+## Streaming API benefits
+- Near real-time
+- Guaranteed at least once delivery
+- Access to all underlying state changes
+- Can scale
+- Can stream to as many consumers as needed without affecting the core
+- Granular access to extensible data model.
+- Advantages can be categoried into 4 areas:
+    - Operational efficiency: not having batch processing and no downtime and can scale to retrieve large data
+    - Response to change: banks can respond to changes in real-time and take action based on events
+    - Advanced anatylics: banks can build analytical tools and AI based on real time events
+    - Ease of integration: changes made to underlying products like smart contracts don't affect the downstream services that consume events.
+## Data types
+- Facts: describing the creation of resources like creation of new accounts, postings and balance updates.
+- Resource mutation: describing the changes of resources like product version updates, account updates, device updates
+## Integration and use cases
+### Improve customer loyalty through real-time tailored insights
+- Posting events are consumed in real time and fed into models to predict cash flow shortfalls and reaching spending limits to alert
+- Postings and balance events are used to predict spending patterns and fed into gamification engine to give reward point or cashback in real time
+- Posting data can be enriched with classification, geo-tagging and merchant and embedded into customer facing application to increase transparency 
+- Enable if-else rules in real-time to enable business intelligence, for example if balance exceed this threshold then credit $100 to saving account
+### Reduction of financial risks through continuous liquidity monitoring
+- Vault can provide banks with continuous liquidity monitoring by looking into the posting and balance events streamed in real-time.
+- Posting events are streamed in real-time to downstream services that can run risk analysis instead of having dated information.
+- Vault can be come the only source of truth that other downstream services can rely on to make decicision
+- Vault is also online 24/7 and it supports creation of liquidity monitoring processes that can detect/forecast unexpected spikes and allows banks to hold a smaller buffer for any liquidity shortfalls.
+### Increase revenue using contextual, personalized products
+- Near real-time data allows bank to modify smart contract parameters dynamically according to customers behaviors.
+- Match product offering against customer risk profile and provide transparency
+### Enable real-time general ledger and reconciliation integration
+- Near real-time posting data allows banks to immediately access the state of liquidity, profit and loss.
+- Banks can achieve real-time general ledger and reconciliation operations
+- Depending on the reconciliation strategy, balances can be retrieved via Core API daily or intra-daily.
+
+# Documentation hub
+## Overview
+- One stop shop for all documentation
+- 4 main areas: Vault Core, Vault Payment, Vault Core SaaS, Vault Core Product library
+- Available with every instance and tagged that Vault instance version
 
