@@ -342,7 +342,7 @@
     - Denominaton: any currencies in the world or even fake currencies like Hilton Hotel Point or Avios Air Miles
     - Address: each address is a partition of the total balance. Each has its own balance and interest. For example it could be used to accrue interest or to save money for Car, Vacation ...
     - Phase: there are 3 phases that funds are stored in an address Pending Outgoing, Pending Incoming and Committed, depending on where they are during payment lifecycle.
-- Balances are calculated using 3 properties
+- A balance has 3 attributes:
     - Total Debit
     - Total Credit
     - Net.
@@ -472,4 +472,61 @@
 - One stop shop for all documentation
 - 4 main areas: Vault Core, Vault Payment, Vault Core SaaS, Vault Core Product library
 - Available with every instance and tagged that Vault instance version
+
+# Smart Contract
+## What is a smart contract?
+- It's python code that is run by Vault to operate financial products like saving accounts, lending products or current account
+- Smart Contract has the following characteristics:
+    - They are configuration of financial products and part of the Configuration Layer, it's how the Vault can bring these products to life.
+    - Transparent beause it encapsulates all logic and parameters of financial products within its code
+    - Autonomous because it's executed automatically by the Vault during the acccount lifecycle or at scheduled times
+    - Parameterizable as it can takes in parameters for each type of product
+    - Flexible because code and parameters can be updated and deployed easily using Core API
+### Key Vault Resource - Account
+- A customer account can be linked to 1 or more customers and is governed by the logic within Smart Contract associated with that account.
+- A customer account holds the balances and other metadata such as:
+    - Opening date
+    - Stakeholders: list of the linked customers
+    - Instance and account level parameters
+    - Linked payment devices
+    - Account details: key/value to store unstructured data.
+### Key Value Resource - Posting
+- Posting instruction batches describe the movements of funds
+- Each Posting instruction batch consists of multiple Posting instruction
+- Each Posting instruction has at least 2 posting Debit (money in) and Credit (money out)
+- Postings are immutable and appended to the Ledger, so to update a posting, we have to add backdated postings.
+
+### Key Value Resource - Balance
+- Balances are calculated across 4 dimensions:
+    - Asset type (Commercial bank money or reward point)
+    - Denomination (USD, SGD)
+    - Address
+    - Phase
+- A balance has 3 attributes:
+    - Total debit postings
+    - Total credit postings
+    - Net
+- A lending product is considered asset because the customer owes the bank money while a deposit account is considered liability because the bank owes the customer money.
+
+- A smart contract that is associated with an account dictates the behavior of that account such as:
+    - Accept or reject transfer
+    - Settling account opening actions
+    - Settling account closing actions
+    - Creating scheduled actions
+
+## Business advantages of Smart Contract
+- In the 1st generation of banking system, each product has its own core system like Account, Lending, Deposit.
+- This approach makes it difficult to have the big picture of the financial state of the bank.
+- Customer data has to be pulled from different sources and conformed into 1 standard 
+- In the 2nd and 3rd generaton, the banking systems are bigger and able to handle multiple products. Entities such as Customer can be represented once and are associated with multiple products.
+- Financial products are also parameterized so banks can customize their products.
+- The problem with the 2nd and 3rd gen is that the features are vendor locked and banks cannot add their own features. They have to go back to vendors to request for changes and slow to test and deploy.
+- Smart Contract is more flexible because now banks can implement their own products in whatever logic they want and can test and deploy on their own instead of relying on a fixed set of products and parameters.
+
+## Smart Contract Hooks
+- Hooks are interface that Vault can communicate with smart contracts
+- Hooks are financial behavior of smart contracts and they are called by Vault at different times throughout the lifecycle of smart contract.
+- When an account is created, the activation_hook is called immediately. This hook could disburse a loan amount to a linked CASA account if the customer is opening a loan product or disburse a small signup bonus to a wallet account during a promotion period.
+- Also during account opening, the execution schedules job is run to set the schedules of other jobs that are set by the writter of the Smart Contract.
+
 
