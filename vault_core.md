@@ -528,5 +528,76 @@
 - Hooks are financial behavior of smart contracts and they are called by Vault at different times throughout the lifecycle of smart contract.
 - When an account is created, the activation_hook is called immediately. This hook could disburse a loan amount to a linked CASA account if the customer is opening a loan product or disburse a small signup bonus to a wallet account during a promotion period.
 - Also during account opening, the execution schedules job is run to set the schedules of other jobs that are set by the writter of the Smart Contract.
+- Before some money is transfered into an account, the hook pre_posting_hook is run to verify that the fund can be transfered.
+- After the posting has been added to the Ledger, the Vault will call post_posting_hook, this hook can rebalance the balance or auto save the spending...
+- Depending on the timing that has been set in the activation_hook, the scheduled_event_hook will then execute the logic like profit accrual
+- To update the parameters of a contract, we can use Core API and this will involves 2 other hooks pre_parameter_change_hook and post_parameter_change_hook. Actions such as recalculating profit can be done in post_parameter_change_hook.
+- If we want to update the version of the contract then conversion_hook will run.
+- When we close the account via Core API, the deactivation_hook will run, this hook will typically include the logic to for closing accounts like zeroing out the balances.
 
+## Hook decorators
+- To specify what data to be fetched in @fetch_account_data, we need to use the data fetcher in smart contract.
+```python
+data_fetchers = [
+    ParametersIntervalFetcher(
+        fetcher_id = 'param_if_1',
+        filter=ParametersFilter(parameter_ids=['interest_rate']),
+        start=RelativeDateTime(shift=Shift(months=-1), Origin=DefinedDateTime.EFFECTIVE_DATETIME),
+        end=DefinedDateTime.EFFECTIVE_DATETIME
+    ),
+    ParametersObservationFetcher(
+        fetcher_id = 'param_if_2',
+        filter=ParametersFilter(parameter_ids=['interest_rate']),
+        at=DefinedDateTime.EFFECTIVE_DATETIME
+    ),
+    BalancesIntervalFetcher(
+        fetcher_id='bif_1',
+        filter=BalancesFilter(addresses=['SAVING', 'INTEREST']),
+        start=RelativeDateTime(shift=Shift(month=-2), Origin=DefinedDateTime.EFFECTIVE_DATETIME),
+        end=DefinedDateTime.EFFECTIVE_DATETIME
+    ),
+    PostingsObservationFetcher(
+        fetcher_id='pif_1',
+        at=RelativeDateTime(shift=Shift(month=-1, day=1), Origin=DefinedDateTime.EFFECTIVE_DATETIME)
+    )
+]
+```
+- There are 2 types of fetcher, Observation which fetches data at a point in time and Interval which fetches a time-series data 
+- When we write the code for the hooks, we need to specify which data we want to retrieve for those hooks, the Vault will fetch the data before it executes hooks.
+- For example to get the parameters, balances and postings, we have to use @fetch_account_data decorator
+- We can specify the period that we want to fetch data using conventions like 1_month, 2_year (TBC)
+```python
+@fetch_account_data(
+    parameters=['interest_rate'],
+    balances=['1_month'],
+    postings=['1_month']
+)
+```
 
+- Or we can use our own data_fetchers like so:
+```python
+@fetch_account_data(
+    parameters=['param_if_1'],
+    balances=['bif_1'],
+    postings=['pif_1']
+)
+```
+
+- For instance or template parameters, we can use @requires with True/False
+```python
+@requires(
+    parameters=True,
+    balances=True
+)
+```
+
+## Helper functions
+- In hooks, there are some predefined helper functions such as;
+    - get_account_creation_datetime: retrieve account creation date
+    - get_flag_timeseries: get flag's value timeseries
+    - get_permitted_denominations: get a list of permitted denominations for the account
+
+## Hot Path and Non Hot Path
+- When a posting is made to a ledger, hook pre_posting_hook and post_posting_hook execute prior and after it's appended to the ledger.
+- The pre_posting_hook -> ledger is considered Hot Path as it can reject the posting while the path from post_posting_hook -> ledger is considered Non Hot Path.
+- Each hook can have different performance implication, for pre_posting_hook, the payment providers always expect the payment to be accepted or rejected within a few seconds so it has to be performant, so it's recommended for this hook to have limited data access and only perform a simple balance check 
