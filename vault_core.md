@@ -600,4 +600,236 @@ data_fetchers = [
 ## Hot Path and Non Hot Path
 - When a posting is made to a ledger, hook pre_posting_hook and post_posting_hook execute prior and after it's appended to the ledger.
 - The pre_posting_hook -> ledger is considered Hot Path as it can reject the posting while the path from post_posting_hook -> ledger is considered Non Hot Path.
-- Each hook can have different performance implication, for pre_posting_hook, the payment providers always expect the payment to be accepted or rejected within a few seconds so it has to be performant, so it's recommended for this hook to have limited data access and only perform a simple balance check 
+- Each hook can have different performance implication, for pre_posting_hook, the payment providers always expect the payment to be accepted or rejected within a few seconds so it has to be performant, so it's recommended for this hook to have limited data access and only perform a simple balance check.
+- All other hooks are Non Hot Path 
+
+## Basic Smart Contract structure
+- At the top of a Smart Contract is imports
+```python
+from contracts_api import ActivationHookArguments, ActivationHookResult, [...], Tside
+from typing import Optional
+```
+- After that is the Metadata section
+```python
+# current version of smart contract API being used
+api='4.0.0'
+# the version of this contract
+version='3.0.0'
+# the display name of the product that will be shown in the API and the Operational Dashboard
+display_name='Current Account'
+# the summary 
+summary='An everyday banking account with optional overdraft facility'
+# the tside of the product, for lending it's usually asset, for deposit it's usually liability
+tside=Tside.LIABILITY
+```
+- Next we define all the schduled events that we want to use for this contract and any tags and groups for the events
+```python
+events=[...]
+```
+- The Data fetcher section contains all the fetchers that fetch data for this product such as balance obvervation, postings interval or parameters
+```python
+data_fetchers=[...]
+```
+- The final section is for the hooks and decorators
+```python
+@requires(parameters=True)
+def activation_hook (vault, hook_arguments: ActivatoinHookArguments) -> Optional[ActivationHookResult]:
+    return ActivationHookResult(
+        scheduled_event_return_value={
+            'event_1': ScheduledEvent(...)
+        }
+    )
+@fetch_account_data(event_type='event_type_1', balances='bof_1')
+def scheduled_event_hook (vault, hook_arguments: ScheduledEventHookArguments) -> Optional[ScheduledEventHookResult]:
+    return ScheduledEventHookResult(...)
+```
+
+## Smart Contract example
+- pre_posting_hook checks if the posting contains any disallowed denominations
+```python
+@fetch_account_data(parameters=['denomination'])
+def pre_posting_hook (vault, hook_arguments):
+    params_observation = vault.get_parameters_observation(name='param_observation_fetcher_1')
+    allowed_denomination = params_observation.get('denomination')
+    posting_denomination_used = set(post.denomination for post in hook_arguments.posting_instructions)
+    disallowed_denomination_used = posting_denomination_used.difference([allowed_denomination])
+    if disallowed_denomination_used:
+        return PrePostingHookResult(
+            rejection=Rejection(
+                message='Cannot make transactions in denominations:'
+                f"{','.join(disallowed_denomination_used)}."
+                f"Transactions must be in {allowed_denomination} only."
+                reason_code=RejectionReason.WRONG_DENOMINATION
+            )
+        )
+```
+
+## Parameters, time series and flags
+- Vault supports a range of parameter types:
+    - String: general-purpose
+    - Decimal: can store currency and interest rate
+    - Enumeration: values have to come from a predefined set of values
+    - Date Time: date and time
+    - Account: can be used to configure target account for posting instructions made by the hooks
+
+- Smart Contracts do not store states, it's stateless.
+- To store parameters of an account, we store them as Contract Parameters in Vault and the hooks will retrieve data from the Vault
+- There are 4 levels of parameters (class Parameter)
+    - Global: shared by all Smart Contracts
+    - Template: shared by all instances of a Smart Contract
+    - Instance: belongs only to 1 Smart Contact instance
+    - Instance (derived): unique to each account, calculate values on the fly, using derived_parameters hook, for example complex calculation such as interest_rate = base_rate + profit_margin_rate + customer_margin
+- Smart Contract expected parameters (class ExpectedParameter) have 2 levels:
+    - Root level: all smart contracts have access to these parameters
+    - Account owned level: unique to each account
+    - Currently there is no product level parameters so we can use template level for this purpose
+## Shape
+- Smart contracts are python objects that follow predefined shapes
+- Shapes allow contract writers to validate input, add metadata like UI hinting and permissions
+- Shapes support most common use cases like string shape, decimal shape, date shape, account ID shape...
+- Writers can write their own shapes
+```python
+Parameter(
+    name='repayment_day',
+    level=ParameterLevel.INSTANCE,
+    description='Just a descriiption about repayment day',
+    display_name='Repayment Day',
+    shape=NumberShape(
+        min_value=1,
+        max_value=28,
+        step=1
+    ),
+    update_permission=ParameterUpdatePermission.USER_EDITABLE,
+    default_value=28
+)
+```
+
+## Constraint
+- Similar to Parameter's Shapes, Expected Parameters use Constraints
+- Constraints allow writer to validate input and output Expected Parameters, add metadata like value ranges, optionality and whether changing the parameters should trigger the smart contract logic
+- Like shapes, constraints support most common use cases like string, number, date time constraint
+```python
+ExpectedParameter(
+    id='repayment_day',
+    constraint=DecimalConstraint(
+        min_value=1,
+        max_value=28
+    ),
+    trigger_pre_parameter_change_hook=True,
+    optional=False
+)
+```
+
+## Timeseries
+- Timeseries is a sequence of data points that occur successively over a period of time which allows us to go back in time and take a snapshot of a resource.
+- Vault provides timeseries for the following resources:
+    - Balances
+    - Parameters
+    - Flags
+- Some use cases for timeseries are:
+    - Retrieving the latest denomination to determine the allowed denomination
+    ```python
+    denomination = vault.get_parameter_timeseries(
+        name='denomination'
+    ).latest()
+    ```
+    - Retrieving a past balance given a timestamp
+    ```python
+    vault.get_balance_timeseries(fetcher_id='fid').at(
+        timestamp=effective_datetime
+    )
+    ```
+    - Retrieving all repayment holiday flag values of the previous month
+    ```python
+    vault.get_flag_timeseries(
+        flag='REPAYMENT_HOLIDAY'
+    ).at(timestamp=previous_month)
+    ```
+    - Retrieving the latest repayment holiday flag value
+    ```python
+    vault.get_flag_timeseries(
+        flag='REPAYMENT_HOLIDAY'
+    ).latest()
+    ```
+## Flag
+- Flags are boolean values stored in Vault against Accounts, Payment devices and Balances
+- They are used to customize the behavior of individual accounts from another
+- Some use cases:
+    - Mark an account delinquent when they fail to pay the bills
+    - Add repayment holiday flag to an account so that the customer doesn't have to repay their bills on time
+    - Flagging with dormant when a customer stop using an account which will freeze it
+    - Tier based feature such as better deals for employees
+
+## Testing
+- There are 3 levels of testing
+    - Unit test: test individual hooks against mocked dependencies
+    - Simulation: simulate Vault instance
+    - Instance: test functionality against real instances
+
+## Simulation testing
+- To simulation test, we use the testing API of the Vault core to send the code, start and end time, events and actions such as postings, activating flags...
+- The testing API will return events that happened during the simulation, the balance timeseries and Posting instruction batches that occurred during the simulation
+```JSON
+"result": {
+    "timestamp": ...,
+    "derived_params": {
+        "Loan Account 1": {
+            "values": {
+                "next_repayment_date": "2024-09-10",
+                "outstanding_payment": "789.12",
+                "remaining_principal": "4122.11",
+                "remaining_terms": "10"
+            }
+        }
+    },
+    "logs": [
+        "created account Loan Account 1",
+        "set account parameter \"principal\" value to \"5000\""
+        "set account parameter \"total_term\" value to \"12\""
+        "set account parameter \"upfront_fee\" value to \"0\""
+    ]
+}
+```
+- Based on this result, we can see if the smart contract:
+    - Scheduled events are executed successfully
+    - Expected postings are accepted or rejected
+    - Derived parameters are calculated correctly
+    
+# End of day
+## What is End of day
+- End of day (EOD) is a set of predefined events that run after banks conclude their operations for the day
+- Things we can do at EOD are:
+    - Perform interest accrual
+    - Post interest
+    - Start or mature term account
+    - Calculate account EOD posisition or even SOD position
+    - Stream customer documents, financial reporting and data for EOD reports
+- Events like postings (calculation of interest accrual), events that impact opening account balances ... are crucial and must be executed in a timely manner.
+- Other events that do not affect the postings and opening balances should not be included in the EOD operations
+
+## EOD challenges
+- Since modern banks operate 24/7, there is a challenge that we cannot stop the bank at a time to calculate positions.
+- Since data is constantly changing, it's difficult to calculate positions at EOD
+- There are generally 3 common ways to solve this:
+    - Extend the EOD past 5PM and keep the down time as short as possible, we don't really solve the problem
+    - While the core is closed, use an auxilary system to do payment until the core is back, this is quite complex
+    - Never shut down the core, it's always online but difficult to calculate the positions as data is constantly changing
+
+## EOD examples
+- A bank accrues interest daily on their saving account at 11:00PM
+- It applies interest monthly on the saving account at 11:30PM
+- It informs downstream services to run their EOD once both schedules have completed successfully
+
+## Schedule group
+- A schedule group will enforce these 3 schedules to run in an ordered manner
+- Once the EOD reporting schedule has run successfully, it will send an event with an associated scheduled tag to Kafka to inform other services to run their own EOD
+- So the 3 jobs will run as followed:
+    - The Accrue interest job runs first at 11PM, it uses contract parameters to decide what the interest should be
+    - The Apply interest job runs after that, since we group 3 of them into 3 Schedule group, if the Accrue interest fails to run, the Apply interest job will not run.
+    - Once the interest is calculated and applied, the EOD reporting job will run and send out events with an associated scheduled tag to inform downstream services to run their own EOD reporting
+
+## Processing group
+- A Processing Group is a Vault resource that groups Accounts and Plans, it can affect all Accounts and Plans within it.
+- It's can be used to set status of EOD operations to PAUSED or UNPAUSED.
+- If EOD is PAUSED then all the schedules within it will not run.
+- This is useful in case the EOD reporting is waiting for a late posting from the upstream services or the upstream services are having issues and need to wait.
