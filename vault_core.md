@@ -833,3 +833,14 @@ ExpectedParameter(
 - It's can be used to set status of EOD operations to PAUSED or UNPAUSED.
 - If EOD is PAUSED then all the schedules within it will not run.
 - This is useful in case the EOD reporting is waiting for a late posting from the upstream services or the upstream services are having issues and need to wait.
+
+# Vault Core SaaS
+## Vault Core Platform
+- Vault Core is built on a distributed microservices architecture and deployed in containers, using Kubernetes to orchestrate
+- Vault Core is cloud-native and banks can choose any vendors
+- Thought Machine also offers Thought Machine hosted environment that follows security standards such as ISO 27001 and SOC2
+- Clients manage the Configuration layer which is comprised of Smart Contracts and Chain of Accounts, they're also responsible for building their own accounting structure and financial products without relying on Thought Machine.
+- Thought Machine provides the tooling, documentation and training
+- The Platform Layer is common for all clients and is taken care of by Thought Machine
+
+## SaaS vs bank hosted
