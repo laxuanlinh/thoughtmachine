@@ -844,3 +844,85 @@ ExpectedParameter(
 - The Platform Layer is common for all clients and is taken care of by Thought Machine
 
 ## SaaS vs bank hosted
+### Hosting
+- Thought machine manages the cloud infra in AWS or GCP
+- Banks can deploy to various vendors of their choosing
+### Scalability
+- Vault is deployed to public cloud to take advantage of the scalability of the cloud
+- Banks can also deploy this themselves and ensure the scalablity
+### Security
+- Thought Machine uses HTTPS and service account token or deletes to bank's identity provider, clients can connecto to the API via load balancer either privately or publicly
+- Banks are responsible for their own security, deployment and surrounding infrastructure
+### Resilience
+- Vault operates actively across 3 Availability Zones, resilient against software and hardware failure 
+- By default, bank hosted is deployed across 3 Availability Zone within the same region or can automatically route traffic to a secondary region
+### Data access
+- Access via Thought Machine SaaS is audited and limited to the smallest set of admin with the minimum set of permissions grated to operate the environment as the *data processor*.
+- An on call Thought Machine engineer may need to access the infrastructure and data but follows strict guidelines. In case of emergency and the engineer needs to access data, a break glass procedure is triggered and the client will be informed.
+- For bank-hosted, the infrastructure and data is alwasy under the customer's custody, Thought Machine has no access
+### Monitoring and Support
+- Thougt Machine provides 24/7 monitoring and production support to ensure that issues are proactively identified and resolved
+- For bank-hosted, there will be a centralized store of metrics and observability dashboards which client can manage
+### Upgrade
+- Thought Machine automatically pushes the latest update to the staging environment, pre-production and production deployment is coordinated with the client
+- For bank-hosted, the client will receive the latest version of Thought Machine and arrange the deployment themselves
+### Costs
+- All costs of Vault license, Vault hosting and support are included into a monthly fee
+- For bank-hosted, only Vault license and supported is included, the infrastructure is the responsibility of the banks
+
+## Requesting a Vault SaaS environment
+- Ask CDM about the form
+- There are some roles within the company to need to sign this form
+- The estimated delivery date is as per Service Level Objective after the form is received and validated
+\
+## Thought Machine SaaS Vault environment overview
+- Each client can have up to 3 environments: staging, pre-prod, and prod
+- Staging is for testing only, not suitable for performance testing, no personal data.
+- Pre-prod resembles prod, the rest is similar to the staging environment
+- Prod is live client environment, high availability, can hold personal data, 3 AZ within a region.
+- All environment upgrade is coordinated between the client and Thought Machine
+## Delivery Framework
+- All projects start with a knowledge transfer program with 3 key steps
+  - Access to product library which is comprised of all Smart Contracts, documentation about how to customize these products
+  - Enablement program which provides training for Introduction to Vault, Vault's architecture and Configuration Layer, additional Labs, webinars nd workshops, customized traning program and certification
+- Assigned to an Enablement Manager who will guides through the Enablement process, any engagement will start with scoping and planning. 
+- The delivery approach will provide informatin such as:
+  - How to deploy the configuration layer
+  - How to request new features
+  - How TM delivers new releases and how to consum them
+  - ...
+## Environments, releases and versions
+- Version 1.0 is pushed and tested in staging environment in week 4 and tested there
+- Version 1.0 is then pushed to pre-prod and tested there in week 7
+- After all integration testing, the Version 1.0 is coordinated to push to prod in week 8
+- The exact date and details will be agreed upon in consultation with the client
+
+## SaaS support overview
+- Provide 24/7 production support that monitors and identifies issues, triage and manage though to the resolution
+- Client Success Managers are the representatives of the customer within Thought Machine and the operatonal escalation point who ensure the support processes and procedures are maitained
+## Support channel and flow diagram
+- There are 3 support levels 
+  - Level 1: initial triage from end users, monitoring tools and the first level of diagnostics, low level changes
+  - Level 2: the escalation point for level 1, detailed troubleshooting, capture and analyze logs and complete low-level changes
+  - Level 3: the escalation point for level 2, enhanced troubleshotting capability, complex analysis of logs and work cases 
+- There are 6 levels of serverity:
+  - Critical
+  - Major
+  - Minor
+  - Low
+  - Support request
+  - Root cause analysis
+## Skills required
+- Typically in a Thought Machine implementation project, we have roles from Thought Machine, partners and clients
+- From the client side:
+  - Business Analyst: translate into requirements
+  - Client engineer: develop and test in Configuration Layer
+  - Site Reliability Engineer: assist with installing and configuring 
+  - Project manager: key stakeholders engagement and overall success of the implementation
+  - Solution architect: responsible for overall technical vision, implementation of the project and integration with Vault
+  - Engineer: develop and test end to end solution
+  - Service support: incident triage
+- From Thought Machine:
+  - Enablement Manager: support client, training, ensure the client has access to the resources, training and workshops
+  - Cloud support engineer: configure and deploy SaaS, manage incidents with the engineering team, understand and investigate client's technical queries
+  - Client Success Manager: act as the operational escalation point and the representative of the client within Thought Machine, advise client to make better decisions on the implementation, SLA performance reporting
