@@ -335,10 +335,10 @@
 
 ## Balance details
 - Balances are calculated across 4 dimensions, this allows any account structured to be represented:
-    - Asset type: commercial bank or reward point or something else
-    - Denominaton: any currencies in the world or even fake currencies like Hilton Hotel Point or Avios Air Miles
-    - Address: each address is a partition of the total balance. Each has its own balance and interest. For example it could be used to accrue interest or to save money for Car, Vacation ...
-    - Phase: there are 3 phases that funds are stored in an address Pending Outgoing, Pending Incoming and Committed, depending on where they are during payment lifecycle.
+    - `Asset type`: commercial bank or reward point or something else
+    - `Denominaton`: any currencies in the world or even fake currencies like Hilton Hotel Point or Avios Air Miles
+    - `Address`: each address is a partition of the total balance. Each has its own balance and interest. For example it could be used to accrue interest or to save money for Car, Vacation ...
+    - `Phase`: there are 3 phases that funds are stored in an address Pending Outgoing, Pending Incoming and Committed, depending on where they are during payment lifecycle.
 - A balance has 3 attributes:
     - Total Debit
     - Total Credit
