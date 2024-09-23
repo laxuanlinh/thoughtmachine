@@ -50,17 +50,17 @@
 
 ## Vault Core Integration
 - Responsibilities:
-    - **Manufactering products** with Smart Contracts, writing python code and deploy to Vault Core
-    - **Managing accounts**, every time a customer opens a new account, a Smart Contract is executed to determine the parameters and operations of this account
-    - **Postings**: either via Postings API or the Smart Contracts can generate events themselves. The Ledger records these events
-    - **Managing customers**: *Vault Core cannot handle PII* so these information has to be stored some where else. The holding of a customer in Vault Core is linked to this information via a *unique ID*.
+    - ``Manufactering products`` with Smart Contracts, writing python code and deploy to Vault Core
+    - ``Managing accounts``, every time a customer opens a new account, a Smart Contract is executed to determine the parameters and operations of this account
+    - ``Postings``: either via Postings API or the Smart Contracts can generate events themselves. The Ledger records these events
+    - ``Managing customers``: `Vault Core cannot handle PII` so these information has to be stored some where else. The holding of a customer in Vault Core is linked to this information via a `unique ID`.
 
 - Other functionalities within a bank:
-    - **KYC and AML**: verify identities and avoid risky customers
-    - **Cards and payments**: make and receive payments from other banks
-    - **Fraud monitoring**
-    - **Credit scoring and credit risks**: who to lend to and how much
-    - **Data reporting and analysis**
+    - ``KYC and AML``: verify identities and avoid risky customers
+    - ``Cards and payments``: make and receive payments from other banks
+    - ``Fraud monitoring``
+    - ``Credit scoring and credit risks``: who to lend to and how much
+    - ``Data reporting and analysis``
 
 # Vault Core Architecture
 ## Vault Core APIs
@@ -80,12 +80,12 @@
 - Vault Core can be run with only the changes from Configuration Layer (Smart Contracts)
 - Each smart contract can be scheduled to run certain functions instead of relying on a global schedule.
 - Instead of having multiple APIs/components for types of payments, Vault Core has only 1 postings/payments API that any payments can hook on the same way.
-- Payment devices like credit cards are not depenedent on the account logic so 1 device and be hooked onto multiple accounts. For example a payment card can be associated with a debit account and a credit account account and the customer can switch between them.
+- Payment Devices like credit cards are not depenedent on the account logic so 1 device and be hooked onto multiple accounts. For example a payment card can be associated with a debit account and a credit account account and the customer can switch between them.
 - Cloud native, highly available, can run in multiple regions, can use CSP's backup solution instead of manual backup.
 
 ## Creative Migration Strategies
 - Vault Core offers solution to migrate existing data into the new system with 6 key properties
-    - Data is migrated and maintained and **account level**, via APIs that support real-time sync
+    - Data is migrated and maintained and ``account level``, via APIs that support real-time sync
     - Dependency management, can config dependencies so that we can input data in any order but it's only loaded until all dependencies are met.
     - Load process is fully automated from API request to streamed events
     - Real-time event streaming which can immediately provide data to downstream systems.
@@ -94,10 +94,10 @@
 
 ## APIs
 - Internally, Vault Core has a microservice architecture including these smaller services:
-    - **Products and Accounts**: manages smart contracts, customer accounts (also smart contracts), chart of accounts and double-entry bookkeeping (debit and credit recording)
-    - **Flags and Parameters**: manages all parameters configured for the smart contracts
-    - **Postings and Balances**: keep tracking of fund movements, the ledger prioritizes from high to low topics. Point in time processor handles postings from scheduled events. Balances are side effects of postings.
-    - **Calendar and schedule**: manages the scheduled events defined by smart contracts.
+    - ``Products and Accounts``: manages smart contracts, customer accounts (also smart contracts), chart of accounts and double-entry bookkeeping (debit and credit recording)
+    - ``Flags and Parameters``: manages all parameters configured for the smart contracts
+    - ``Postings and Balances``: keep tracking of fund movements, the ledger prioritizes from high to low topics. Point in time processor handles postings from scheduled events. Balances are side effects of postings.
+    - ``Calendar and schedule``: manages the scheduled events defined by smart contracts.
 
 - Core API: 
     - Account management: view accounts, open/close accounts, change status, update instance parameters of an account
@@ -117,7 +117,7 @@
     - Accounting events
     - Posting balances events
     - Customer entity status changes
-    - Payment device events
+    - Payment Device events
     - Smart contract activation, version change
     - Configuration change.
 - Data Loader API: load data from legacy core to Vault Core. Data is loaded asynchronously via Kafka. All data is loaded throught 1 API, except for postings. It's basically an ETL pipeline. By the time the data is loaded to Vault Core, it's already extracted and transformed into an appropriate format.
@@ -144,10 +144,10 @@
 - Operation dashboard and Core API are mostly used to upload POC smart contracts
 - Most banks want to deploy new contracts via CICD pipelines using the Configuration layer utilities.
 - There are 4 types of data in Vault Core:
-    - **Financial data**: ledger, accounts data store, balances data store, this the the source of truth
-    - **Configuration data**: smart contracts, Configuration Layer Utilities is used to deploy smart contracts
-    - **Supplementary data**: data used by Vault Apps (Configuration layer???)
-    - **Service data**: data used to monitor the Vault instances, including logs and tracing.
+    - ``Financial data``: ledger, accounts data store, balances data store, this the the source of truth
+    - ``Configuration data``: smart contracts, Configuration Layer Utilities is used to deploy smart contracts
+    - ``Supplementary data``: data used by Vault Apps (Configuration layer???)
+    - ``Service data``: data used to monitor the Vault instances, including logs and tracing.
 ## Entity model
 - There are 3 types of entities in Vault Core
     - Postings ledger: contains all fund movements
@@ -155,7 +155,7 @@
     - Account data store: each account is an object associated with resources that make up a bank account, including stakeholders, balances. Each account is an instance of a smart contract.
 - Postings are appended to the ledger and cannot be changed, the list of postings is the source of truth and is used to calculate the balances
 - There are 2 types of accounts: Internal and Customer account.
-- Internal accounts are not defined by Smart contracts and is used to allocate and track funds for the financial institution.
+- Internal accounts are not defined by Smart contracts and is used to allocate and track funds for the financial institutions.
 - Each customer account can be divided into multiple addresses, each address has its balance. The balance of each address is calculated by the postings made against that address.
 - The structure of addresses is dictated by the smart contract but can also be dynamically creatd when a posting is accepted (maybe a posting that doesn't belong to any existing addresses???)
 - The net balance of an address is calculated according to the type of the account: asset or liability.
@@ -195,43 +195,40 @@
     - Opening date
     - Stakeholders
     - Instance parameters
-    - Linked payment devices
+    - Linked Payment Devices
     - Account details, follows key-value structure to capture custom data.
 - Update accounts via Account Update API
 - Not all updates to accounts can be done synchronously, because some of them require smart contract code to be run. These updates include
-    - Change instance parameters because it requires *pre_parameter_change_code* to be run
-    - Change product version because it requires *upgrade_code* to be run
+    - Change instance parameters because it requires `pre_parameter_change_code` to be run
+    - Change product version because it requires `upgrade_code` to be run
 - All customer accounts have at least 1 balance.
 - Balances are calculated using 4 dimensions
-    - **Asset type** (Commercial bank money or another asset type)
-    - **Denomination** (currencies like USD, SGD)
-    - **Address**, address maybe where to track interest or to store sub-pots for saving or where the bank can track fees 
-    - **Phase**, there are 3 phases *Incomding*, *Outgoing* and *Committed*
+    - ``Asset type`` (Commercial bank money, cash or another asset type)
+    - ``Denomination`` (currencies like USD, SGD)
+    - ``Address``, address maybe where to track interest or to store sub-pots for saving or where the bank can track fees 
+    - ``Phase``, there are 3 phases `Incomding`, `Outgoing` and `Committed`
 - Balances have 3 attributes:
     - Total debit
     - Total credit
     - Net: depending on the type (T-side) of the account Asset or Liability
 
-## Payment devices
-- Payment devices provides external account ID
-- Customers can select account to charge using a single card, customer can route the payment to multiple accounts and can 1 account can have unlimited number of supplementary cards
-- A payment device can be email, card, account number, phone number, physical payment device ...
-- A payment device can link to 1 or multiple accounts using unique Payment Device Links
-- Each link has a token that can be used to identify the links and make postings to.
+## Payment Devices
+- A Payment Device can be account number, IBAN, payment card ...
+- A Payment Device can link to 1 or multiple accounts using unique `Payment Device Links`
+- Each link has a `Payment Device Token` that can be used to identify the links and make postings to, this is for performance as each token is a hashed value
 - Multiple devices linking to the same account can share 1 token with each device having status Active or Inactive.
 - Or each link can have a unique token created by external systems to enable
+- Each account can be linked to multiple Payment Devices
 
-## Posting Instruction batches
-- Posting Instruction batches represent the movements of funds between accounts.
-- A single Posting Instrcution batch is made up of many Posting instruction.
-- A Posting instruction always contains at least 2 postings, credit and debit.
-- Higher level concepts like transactions and payments are just made up of postings, for example transactions are made up of 2 or more postings
-- If we need to reverse or correct a posting, we have to make new backdated postings
+## Postings Instruction Batches
+- A `Postings Instruction` is a balanced set of credit and debit postings following the double entry bookkeeping practice
+- A `Postings Instruction Batch` is set of `Postings Instructions` where if 1 postings instruction is rejected, the whole batch is rejected
+- `Postings Instruction Batches` should only be used when there are required behaviors that all of them should be either accepted or rejected
 
 ## Internal accounts
 - Internal accounts are internal accounts of the bank, it shows how much money the bank owns
 - It's used on the Vault ledger to meet accounting requirements
-- Internal accounts don't use smart contracts liks Customer accounts with any metadata, it only uses a blank Smart contract to maximize performance.
+- Internal accounts don't use smart contracts linked Customer accounts with any metadata, it only uses a blank Smart contract to maximize performance.
 - Internal accounts are not associated with a customer entity, they're owned by the bank itself
 
 ## Audit entities
@@ -276,8 +273,8 @@
 ## Posting objects
 - There are 3 types of objects when dealing with Postings API
     - Posting: the smallest object, represents debit or credit, it also has asset type (Commercial bank, reward point ...), denomination (currency), amount, account ID/address, phase
-    - Posting instruction: the building block of any transaction, it contains 1 or more Postings, it also contains type such as Inbound/Outbound authorization, Release/Settlement, Adjustment, Transfer and Custom Instructions
-    - Posting instruction batch: contains 1 or more Posting instructions, if 1 of these instructions fails, the whole batch will fail. The batch captures the result of the instruction being posted, either accepted or rejected
+    - Postings Instruction: the building block of any transaction, it contains 1 or more Postings, it also contains type such as Inbound/Outbound authorization, Release/Settlement, Adjustment, Transfer and Custom Instructions
+    - Postings Instruction Batch: contains 1 or more Postings Instructions, if 1 of these instructions fails, the whole batch will fail. The batch captures the result of the instruction being posted, either accepted or rejected
 
 ## Posting types
 - There are 9 posting types, can be divided further into 2 categories Standalone (s) or Chainable (c)
@@ -346,7 +343,7 @@
     - Total Debit
     - Total Credit
     - Net.
-- Net are calculated based on the T-side (whether it's Asset or Liability), *T-side* is determined within *Smart Contract*
+- Net are calculated based on the T-side (whether it's Asset or Liability), `T-side` is determined within `Smart Contract`
 - If Asset then Net = Debit - Credit
 - If Liability then Net = Credit - Debit
 - If we select the balance sheet, we can see there are a lot of accounts, Customer and Internal, they all follow the same account model.
@@ -369,9 +366,9 @@
 - Normally, postings are generated and applied immediately to calculate the balances. Each time a posting is generated, balances are recalculated thus creating a series of balances and allows to take a snapshot of historical balanaces at a point of time.
 - However there are times when we need to go back in time and adjust the postings.
 - To do this, we need timestamp, there are 3 types of timestamp:
-    - *insertion_timestamp*: is when Vault processes a posting and persists in the database. Vault always sets this value, for reporting purposes
-    - *value_timestamp*: is when the fund should have moved between accounts. It can be set by Vault or client, depending on where it comes from. The *value_timestamp* is <= *insertion_timestamp*
-    - *booking_timestamp*: is when the posting is booked. By default, Vault sets this value based on the *value_timestamp* given that the booking period is still open, if not then it sets the *booking_timestamp* to *insertion_timestamp*. It's possible to override the default value by setting this value explicitly, the value has to be between *value_timestamp* and *insertion_timestamp*
+    - `insertion_timestamp`: is when Vault processes a posting and persists in the database. Vault always sets this value, for reporting purposes
+    - `value_timestamp`: is when the fund should have moved between accounts. It can be set by Vault or client, depending on where it comes from. The `value_timestamp` is <= `insertion_timestamp`
+    - `booking_timestamp`: is when the posting is booked. By default, Vault sets this value based on the `value_timestamp` given that the booking period is still open, if not then it sets the `booking_timestamp` to `insertion_timestamp`. It's possible to override the default value by setting this value explicitly, the value has to be between `value_timestamp` and `insertion_timestamp`
 - To set back date posting, create a posting with value_timestamp in the past. Vault will append this back date posting to the ledger and take this posting into account when calculating balances.
 - Recalculation of interest, fees that has resulted from external API calls or scheduled events will have to handled separately.
 - It's recommended to use the Simulation API to calculate what the balance should be, then make the back date postings to adjust.
@@ -482,58 +479,23 @@
     - Autonomous because it's executed automatically by the Vault during the acccount lifecycle or at scheduled times
     - Parameterizable as it can takes in parameters for each type of product
     - Flexible because code and parameters can be updated and deployed easily using Core API
-### Key Vault Resource - Account
-- A customer account can be linked to 1 or more customers and is governed by the logic within Smart Contract associated with that account.
-- A customer account holds the balances and other metadata such as:
-    - Opening date
-    - Stakeholders: list of the linked customers
-    - Instance and account level parameters
-    - Linked payment devices
-    - Account details: key/value to store unstructured data.
-### Key Value Resource - Posting
-- Posting instruction batches describe the movements of funds
-- Each Posting instruction batch consists of multiple Posting instruction
-- Each Posting instruction has at least 2 posting Debit (money in) and Credit (money out)
-- Postings are immutable and appended to the Ledger, so to update a posting, we have to add backdated postings.
-
-### Key Value Resource - Balance
-- Balances are calculated across 4 dimensions:
-    - Asset type (Commercial bank money or reward point)
-    - Denomination (USD, SGD)
-    - Address
-    - Phase
-- A balance has 3 attributes:
-    - Total debit postings
-    - Total credit postings
-    - Net
-- A lending product is considered asset because the customer owes the bank money while a deposit account is considered liability because the bank owes the customer money.
-
 - A smart contract that is associated with an account dictates the behavior of that account such as:
     - Accept or reject transfer
     - Settling account opening actions
     - Settling account closing actions
     - Creating scheduled actions
 
-## Business advantages of Smart Contract
-- In the 1st generation of banking system, each product has its own core system like Account, Lending, Deposit.
-- This approach makes it difficult to have the big picture of the financial state of the bank.
-- Customer data has to be pulled from different sources and conformed into 1 standard 
-- In the 2nd and 3rd generaton, the banking systems are bigger and able to handle multiple products. Entities such as Customer can be represented once and are associated with multiple products.
-- Financial products are also parameterized so banks can customize their products.
-- The problem with the 2nd and 3rd gen is that the features are vendor locked and banks cannot add their own features. They have to go back to vendors to request for changes and slow to test and deploy.
-- Smart Contract is more flexible because now banks can implement their own products in whatever logic they want and can test and deploy on their own instead of relying on a fixed set of products and parameters.
-
 ## Smart Contract Hooks
-- Hooks are interface that Vault can communicate with smart contracts
-- Hooks are financial behavior of smart contracts and they are called by Vault at different times throughout the lifecycle of smart contract.
-- When an account is created, the activation_hook is called immediately. This hook could disburse a loan amount to a linked CASA account if the customer is opening a loan product or disburse a small signup bonus to a wallet account during a promotion period.
-- Also during account opening, the execution schedules job is run to set the schedules of other jobs that are set by the writter of the Smart Contract.
-- Before some money is transfered into an account, the hook pre_posting_hook is run to verify that the fund can be transfered.
-- After the posting has been added to the Ledger, the Vault will call post_posting_hook, this hook can rebalance the balance or auto save the spending...
-- Depending on the timing that has been set in the activation_hook, the scheduled_event_hook will then execute the logic like profit accrual
-- To update the parameters of a contract, we can use Core API and this will involves 2 other hooks pre_parameter_change_hook and post_parameter_change_hook. Actions such as recalculating profit can be done in post_parameter_change_hook.
-- If we want to update the version of the contract then conversion_hook will run.
-- When we close the account via Core API, the deactivation_hook will run, this hook will typically include the logic to for closing accounts like zeroing out the balances.
+- Hooks are Python functions that are called by Vault at different times throughout the lifecycle of smart contract.
+- `activation_hook`: when a new account is activated, used to set scheduled events and perform initial money movements
+- `pre_posting_hook`: when a posting is about to enter the ledger, used to determine if the posting is accepted or rejected
+- `post_posting_hook`: when a posting has been appended to the ledger, used to move additional funds or generate events
+- `scheduled_event_hook`: when a scheduled event runs, used to perform periodic actions such as calculating accrued interest
+- `pre_parameter_change_hook`: when an *INSTANCE* level parameter or future-dated `ExpectedParameter` is going to be updated, even if its value is the same as the previous. It's not updated if a parameter value is backdated
+- `post_parameter_change_hook`: when an *INSTANCE* level parameter or future-dated `ExpectedParameter` has been updated. It's not triggered if backdated
+- `derived_parameter_hook`: when a derived parameter is requested, derived parameters are calculated from other parameters
+- `conversion_hook`: befor ethe account is converted to a newer Smart Contract version
+- `deactivation_hook`: when an account is closed
 
 ## Hook decorators
 - To specify what data to be fetched in @fetch_account_data, we need to use the data fetcher in smart contract.
@@ -598,10 +560,15 @@ data_fetchers = [
     - get_permitted_denominations: get a list of permitted denominations for the account
 
 ## Hot Path and Non Hot Path
-- When a posting is made to a ledger, hook pre_posting_hook and post_posting_hook execute prior and after it's appended to the ledger.
-- The pre_posting_hook -> ledger is considered Hot Path as it can reject the posting while the path from post_posting_hook -> ledger is considered Non Hot Path.
-- Each hook can have different performance implication, for pre_posting_hook, the payment providers always expect the payment to be accepted or rejected within a few seconds so it has to be performant, so it's recommended for this hook to have limited data access and only perform a simple balance check.
+- When a posting is made to a ledger, hook `pre_posting_hook` and `post_posting_hook` execute prior and after it's appended to the ledger.
+- The `pre_posting_hook` -> ledger is considered Hot Path as it can reject the posting while the path from `post_posting_hook` -> ledger is considered Non Hot Path.
+- Each hook can have different performance implication, for `pre_posting_hook`, the payment providers always expect the payment to be accepted or rejected within a few seconds so it has to be performant, so it's recommended for this hook to have limited data access and only perform a simple balance check.
 - All other hooks are Non Hot Path 
+
+## Hook Directives
+- A hook can return some outputs, rejections or `Hook Directives`
+- `Hook Directives` are actions returned by the hook functions
+- `Hook directives` can make more postings, modify account state or trigger account notification
 
 ## Basic Smart Contract structure
 - At the top of a Smart Contract is imports
@@ -645,10 +612,10 @@ def scheduled_event_hook (vault, hook_arguments: ScheduledEventHookArguments) ->
 ```
 
 ## Smart Contract example
-- pre_posting_hook checks if the posting contains any disallowed denominations
+- `pre_posting_hook` checks if the posting contains any disallowed denominations
 ```python
 @fetch_account_data(parameters=['denomination'])
-def pre_posting_hook (vault, hook_arguments):
+def `pre_posting_hook` (vault, hook_arguments):
     params_observation = vault.get_parameters_observation(name='param_observation_fetcher_1')
     allowed_denomination = params_observation.get('denomination')
     posting_denomination_used = set(post.denomination for post in hook_arguments.posting_instructions)
@@ -670,19 +637,43 @@ def pre_posting_hook (vault, hook_arguments):
     - Decimal: can store currency and interest rate
     - Enumeration: values have to come from a predefined set of values
     - Date Time: date and time
-    - Account: can be used to configure target account for posting instructions made by the hooks
-
+    - Account: can be used to configure target account for Postings Instructions made by the hooks
 - Smart Contracts do not store states, it's stateless.
 - To store parameters of an account, we store them as Contract Parameters in Vault and the hooks will retrieve data from the Vault
 - There are 4 levels of parameters (class Parameter)
     - Global: shared by all Smart Contracts
     - Template: shared by all instances of a Smart Contract
-    - Instance: belongs only to 1 Smart Contact instance
+    - Instance: unique to each account
     - Instance (derived): unique to each account, calculate values on the fly, using derived_parameters hook, for example complex calculation such as interest_rate = base_rate + profit_margin_rate + customer_margin
 - Smart Contract expected parameters (class ExpectedParameter) have 2 levels:
     - Root level: all smart contracts have access to these parameters
     - Account owned level: unique to each account
     - Currently there is no product level parameters so we can use template level for this purpose
+```python
+Parameter(
+    # This is how the parameter is r\
+    eferred to in contract code.
+    name='fixed_interest_rate',
+    # Parameters follow predefined "shapes" that are effectively data types. 
+    # Vault supports types for most common use cases.
+    shape=NumberShape(
+        min_value=Decimal('0.0001'),
+        max_value=Decimal('0.0150')
+    ),
+    # Initial value of the interest rate. Such value may change over time,
+    # leading to a time series of parameter values.
+    default_value=Decimal('0.129971'),
+    # Level (see description above). In this case the parameter value is set on 
+    # opening a particular account.
+    level=Level.INSTANCE,
+    # Human-readable description of the parameter.
+    description='The fixed annual rate of the mortgage.',
+    # Front-end label for the parameter.
+    display_name='Fixed interest rate (p.a.)',
+    # Expectations for the parameter update permissions.
+    update_permission=ParameterUpdatePermission.FIXED,
+)
+```
 ## Shape
 - Smart contracts are python objects that follow predefined shapes
 - Shapes allow contract writers to validate input, add metadata like UI hinting and permissions
@@ -752,7 +743,7 @@ ExpectedParameter(
     ).latest()
     ```
 ## Flag
-- Flags are boolean values stored in Vault against Accounts, Payment devices and Balances
+- Flags are boolean values stored in Vault against Accounts, Payment Devices and Balances
 - They are used to customize the behavior of individual accounts from another
 - Some use cases:
     - Mark an account delinquent when they fail to pay the bills
@@ -768,7 +759,7 @@ ExpectedParameter(
 
 ## Simulation testing
 - To simulation test, we use the testing API of the Vault core to send the code, start and end time, events and actions such as postings, activating flags...
-- The testing API will return events that happened during the simulation, the balance timeseries and Posting instruction batches that occurred during the simulation
+- The testing API will return events that happened during the simulation, the balance timeseries and Postings Instruction Batches that occurred during the simulation
 ```JSON
 "result": {
     "timestamp": ...,
@@ -794,6 +785,12 @@ ExpectedParameter(
     - Scheduled events are executed successfully
     - Expected postings are accepted or rejected
     - Derived parameters are calculated correctly
+
+## Schedules
+- Schedules are defined when the account is first activated
+- Schedules can be altered using the logic in the contract when it's active
+- The scheduler is a time-based Kafka producer that periodically sends trigger messages to topics to trigger the consumer
+- These messages are called `Schedule jobs`, they are created within the context of `Scheduler clients` such as `Smart Contracts` and `Workflows`
     
 # End of day
 ## What is End of day
@@ -857,7 +854,7 @@ ExpectedParameter(
 - Vault operates actively across 3 Availability Zones, resilient against software and hardware failure 
 - By default, bank hosted is deployed across 3 Availability Zone within the same region or can automatically route traffic to a secondary region
 ### Data access
-- Access via Thought Machine SaaS is audited and limited to the smallest set of admin with the minimum set of permissions grated to operate the environment as the *data processor*.
+- Access via Thought Machine SaaS is audited and limited to the smallest set of admin with the minimum set of permissions grated to operate the environment as the `data processor`.
 - An on call Thought Machine engineer may need to access the infrastructure and data but follows strict guidelines. In case of emergency and the engineer needs to access data, a break glass procedure is triggered and the client will be informed.
 - For bank-hosted, the infrastructure and data is alwasy under the customer's custody, Thought Machine has no access
 ### Monitoring and Support
