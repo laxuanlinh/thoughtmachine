@@ -113,3 +113,48 @@
 - `Group Schedules` are schedules that are in a `Schedule Group`
 - These `Group Schedules` publish `Scheduled Jobs` in an order, even if it's time to run, they can be still blocked by the previous schedule
 
+## Streaming
+- All state changes provide events to Kafka
+- Each event type has a specific topic
+- The payload of messages usually consist of ID, name of resource being updated or the whole created resource
+- Messages are in JSON format
+
+## Event Reconciliation
+- Event Reconciliation is a mechanism for consumers to check whether all messages of a topic have been received
+
+## Postings Clients
+- When there are postings from multiple sources, it's best to separate them to distinguish between high and low priority.
+- `Postings Clients` can be registered in Vault
+
+## End of Day
+- The point in time (midnight) when banks use balances to calculate interest and fees is called the `1 degree cut-off` or the primary cut-off, this marks the boundary between banking days
+- The point in time of actual calculation after the `1 degree cut-off` is called the `2 degree cut-off`
+- The period between `1 degree cut-off` and `2 degree cut-off` is called the graced period, in this period, it's possible ot receive backdated postings, the backdated could be before the `1 degree cut-off` which will adjust the balances of the customers
+- After the `2 degree cut-off`, it's no longer safe to receive backdated postings.
+- When the calculation is going on, the scheduled jobs will generate more postings, these are called overnight postings, they can happen at the same time as BAU because customers can withdraw at midnight
+- When calculation is complete, it's `Completion`
+- To calculate EOD position of the bank, we need to include a set of both BAU and overnight postings, there are 2 options:
+    - Day 1 BAU + Day 1 overnight
+    - Day 1 BAU + Day -1 overnight
+- `Smart Contracts` allow banks to schedule code to caclulate interest and fees with the following resources:
+    - `Execution schedules`: defined rules when accounts are activated via `activation_hook`
+    - `Schedule events`: the trigger that `Smart Contracts` listen to to run `Scheduled Code`
+    - `Operation event`: the event Vault issue once all `Schedule Code` is executed, this event is published to Kafka with a set of `Schedule tags` so that accounts with those tags can start their processing.
+    - `Schedule tags`: a tag is associated with the Operation event when all `Scheduled code` is executed, to instruct the Smart Contracts/Accounts to start their own processing, it consists of:
+        - `id`
+        - `description`
+        - `sends_scheduled_operation_reports`: indicate if this tag produces notifications
+        - `schedule_status_override`: the status that this tag will apply/override on the accounts
+            - `ACCOUNT_SCHEDULE_TAG_SCHEDULE_STATUS_OVERRIDE_UNKNOWN`: default
+            - `ACCOUNT_SCHEDULE_TAG_SCHEDULE_STATUS_OVERRIDE_NO_OVERRIDE`: not to apply or override any status on the accounts, timestamps not needed
+            - `ACCOUNT_SCHEDULE_TAG_SCHEDULE_STATUS_OVERRIDE_TO_ENABLED`: apply status `SCHEDULE_STATUS_ENABLED` on the accounts that have `schedule_timestamp` in the period between start and end timestamp. Both timestamps are required
+            - `ACCOUNT_SCHEDULE_TAG_SCHEDULE_STATUS_OVERRIDE_TO_FAST_FORWARDED`: apply the status on any accounts that have `schedule_timestamp` between now and end timestamp. Start timestamp not needed, end timestamp is required
+            - `ACCOUNT_SCHEDULE_TAG_SCHEDULE_STATUS_OVERRIDE_TO_SKIPPED`: apply status `SCHEDULE_STATUS_SKIPPED` on any accounts that have `schedule_timestamp` between start and end timestamp, start timestamp is optional, if not present then current time.
+        - `schedule_status_override_start_timestamp`: start timestamp
+        - `schedule_status_override_end_timestamp`: end timestamp
+        - `test_pause_at_timestamp`: testing purposes, indicates when a schedule will pause
+        - `processing_group_id`: the schedule group that it should run in, if omitted then default group
+- Banks implement EOD processes by consuming the messages from Vault.
+- The data from `Streaming API` is fed to `Data hub` to generate reports after banks are confident that they have collected all necessary data
+- Vault provides reconciliation mechanism to check if banks miss any streamed events, if miss then they can be restreamed
+
