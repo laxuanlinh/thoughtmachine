@@ -5,7 +5,7 @@
 - More functionalities, reporting, ...
 - Duplication, disjoined data, no real-time reporting
 ## Vault Core
-- Vault Core API: interact with external applications, it does authentication, smart contracts, simulation, role management...
+- Vault Core API: interact with external applications, it does authentication, `Smart Contracts`, simulation, role management...
 - Postings: keeps track of all movement of funds within Vault Core, credit, debit...
 - Streaming: real-time streaming with Kafka, events like accounting, posting events, customer change ...
 - Vault Core has 3 main functionalities:
@@ -13,17 +13,17 @@
     - Maintain customer accounts
     - Generate and record postings in and out of the accounts
 - Vault Core Ledger records the postings once they're accepted into Vault Core, this is a common platform that any banks can use
-- Smart Contracts are code modules, implemented in Product Engine, allows to reuse code, customize ...
+- `Smart Contracts` are code modules, implemented in Product Engine, allows to reuse code, customize ...
 
 ## Vault Core Product Engine
-- Smart contracts allow any products to be implemented
+- `Smart Contracts` allow any products to be implemented
 - Can replicate existing products for migration
 - Can use SDK to build or use existing products in product library (generic product, saving account...)
 - Built-in testing framework to unit test, mock and simulate.
 
 ## Vault Core Ledger
 - Rich: Capture multiple partitions of an account, different denomincations, assets, monitor and maximize/minimize interest
-- Expressive: Can slice and dice balances into any structure, no limit transparancy, personalized reporting
+- Expressive: Can slice and dice balances into any structure, no limit transparency, personalized reporting
 - Real-time: Stream events, monitor behaviors and maximize/minimize interest
 - Can manage any line of funds, currencies, coins or reward points
 
@@ -50,9 +50,9 @@
 
 ## Vault Core Integration
 - Responsibilities:
-    - ``Manufactering products`` with Smart Contracts, writing python code and deploy to Vault Core
+    - ``Manufactering products`` with `Smart Contracts`, writing python code and deploy to Vault Core
     - ``Managing accounts``, every time a customer opens a new account, a Smart Contract is executed to determine the parameters and operations of this account
-    - ``Postings``: either via Postings API or the Smart Contracts can generate events themselves. The Ledger records these events
+    - ``Postings``: either via Postings API or the `Smart Contracts` can generate events themselves. The Ledger records these events
     - ``Managing customers``: `Vault Core cannot handle PII` so these information has to be stored some where else. The holding of a customer in Vault Core is linked to this information via a `unique ID`.
 
 - Other functionalities within a bank:
@@ -74,9 +74,9 @@
 - There are 2 layers of TM application:
     - Configuration Layer: customizable, TM provides tools and training, specific for each client
     - Platform Layer: common for all clients
-- The Configuration Layer is totally customizable for the end user. It comprises of Chart of Accounts and Smart Contracts.
+- The Configuration Layer is totally customizable for the end user. It comprises of Chart of Accounts and `Smart Contracts`.
 - The client can build their own applications based on their needs, using the tooling and training from TM.
-- The Platform Layer is built by TM and the client can only use the APIs to upload the content of Configuration Layer like Smart Contracts so that the Vault can run them.
+- The Platform Layer is built by TM and the client can only use the APIs to upload the content of Configuration Layer like `Smart Contracts` so that the Vault can run them.
 - Vault Core can be run with only the changes from Configuration Layer (Smart Contracts)
 - Each smart contract can be scheduled to run certain functions instead of relying on a global schedule.
 - Instead of having multiple APIs/components for types of payments, Vault Core has only 1 postings/payments API that any payments can hook on the same way.
@@ -94,14 +94,14 @@
 
 ## APIs
 - Internally, Vault Core has a microservice architecture including these smaller services:
-    - ``Products and Accounts``: manages smart contracts, customer accounts (also smart contracts), chart of accounts and double-entry bookkeeping (debit and credit recording)
-    - ``Flags and Parameters``: manages all parameters configured for the smart contracts
+    - ``Products and Accounts``: manages `Smart Contracts`, customer accounts (also `Smart Contracts`), chart of accounts and double-entry bookkeeping (debit and credit recording)
+    - ``Flags and Parameters``: manages all parameters configured for the `Smart Contracts`
     - ``Postings and Balances``: keep tracking of fund movements, the ledger prioritizes from high to low topics. Point in time processor handles postings from scheduled events. Balances are side effects of postings.
-    - ``Calendar and schedule``: manages the scheduled events defined by smart contracts.
+    - ``Calendar and schedule``: manages the scheduled events defined by `Smart Contracts`.
 
 - Core API: 
     - Account management: view accounts, open/close accounts, change status, update instance parameters of an account
-    - Product management: upload or change version of smart contracts
+    - Product management: upload or change version of `Smart Contracts`
     - Restriction: restrict accounts in case of lost card or malicious activities, stop accounts from being closed or updated.
     - Smart contract simulation
     - Internal accounts: chart of accounts
@@ -134,18 +134,18 @@
 - Each action has a permission
 - Sets of permissions are grouped in to roles, each employee is assigned role.
 - It has tools to service products and accounts held in Platform Layer.
-- It can upload new or updated version of smart contracts.
+- It can upload new or updated version of `Smart Contracts`.
 
 ## Configuration data in Vault
-- There are 3 ways to deploy smart contracts to Vault Core
-    - Operation dashboard
-    - Core API
-    - Configuraiton layer utilities
-- Operation dashboard and Core API are mostly used to upload POC smart contracts
-- Most banks want to deploy new contracts via CICD pipelines using the Configuration layer utilities.
+- There are 3 ways to deploy `Smart Contracts` to Vault Core
+    - `Operation dashboard`
+    - `Core API`
+    - `Configuraiton layer utilities`
+- `Operation dashboard` and Core API are mostly used to upload POC `Smart Contracts`
+- Most banks want to deploy new contracts via CICD pipelines using the `Configuration layer utilities`.
 - There are 4 types of data in Vault Core:
     - ``Financial data``: ledger, accounts data store, balances data store, this the the source of truth
-    - ``Configuration data``: smart contracts, Configuration Layer Utilities is used to deploy smart contracts
+    - ``Configuration data``: `Smart Contracts`, `Configuration Layer Utilities` is used to deploy `Smart Contracts`
     - ``Supplementary data``: data used by Vault Apps (Configuration layer???)
     - ``Service data``: data used to monitor the Vault instances, including logs and tracing.
 ## Entity model
@@ -155,7 +155,7 @@
     - Account data store: each account is an object associated with resources that make up a bank account, including stakeholders, balances. Each account is an instance of a smart contract.
 - Postings are appended to the ledger and cannot be changed, the list of postings is the source of truth and is used to calculate the balances
 - There are 2 types of accounts: Internal and Customer account.
-- Internal accounts are not defined by Smart contracts and is used to allocate and track funds for the financial institutions.
+- Internal accounts are not defined by `Smart Contracts` and is used to allocate and track funds for the financial institutions.
 - Each customer account can be divided into multiple addresses, each address has its balance. The balance of each address is calculated by the postings made against that address.
 - The structure of addresses is dictated by the smart contract but can also be dynamically creatd when a posting is accepted (maybe a posting that doesn't belong to any existing addresses???)
 - The net balance of an address is calculated according to the type of the account: asset or liability.
@@ -178,8 +178,8 @@
     - Access Control API: manage roles of employees.
 
 ## Smart Contract entities
-- Smart contracts are the entities that digitally enforce the agreements between the bank and customers, therefore they define the finacial behaviors of an account and how the balances are calculated.
-- All products are smart contracts and they are the finacial behaviors of an account.
+- `Smart Contracts` are the entities that digitally enforce the agreements between the bank and customers, therefore they define the finacial behaviors of an account and how the balances are calculated.
+- All products are `Smart Contracts` and they are the finacial behaviors of an account.
 - Each product has some metadata and a product version number which points to the version.
 - This product version point the Customer Account to the version of the Smart Contract it executes
 - Each product has multiple versions, each version can be linked to multiple customer accounts
@@ -228,7 +228,7 @@
 ## Internal accounts
 - Internal accounts are internal accounts of the bank, it shows how much money the bank owns
 - It's used on the Vault ledger to meet accounting requirements
-- Internal accounts don't use smart contracts linked Customer accounts with any metadata, it only uses a blank Smart contract to maximize performance.
+- Internal accounts don't use `Smart Contracts` linked Customer accounts with any metadata, it only uses a blank Smart contract to maximize performance.
 - Internal accounts are not associated with a customer entity, they're owned by the bank itself
 
 ## Audit entities
@@ -399,7 +399,7 @@
 ## Product library
 - Designed to provide configurable, feature rich smart contract using best practices
 - Testing libraries include unit test, integration testing and simulation
-- Clients have access to pre-built smart contracts ready to be deployed, can be easily configured to meet differnet
+- Clients have access to pre-built `Smart Contracts` ready to be deployed, can be easily configured to meet differnet
 - Smart Contract Framework provides the ability to cater the whole suite of lending solutions for all financial instutitions, banks ...
 - Interest rate can be configured to be accrual, fixed, variable rate, positive or negative rates
 - Support multi currency accounts, overdraft protection...
@@ -441,10 +441,11 @@
     - Operational efficiency: not having batch processing and no downtime and can scale to retrieve large data
     - Response to change: banks can respond to changes in real-time and take action based on events
     - Advanced anatylics: banks can build analytical tools and AI based on real time events
-    - Ease of integration: changes made to underlying products like smart contracts don't affect the downstream services that consume events.
-## Data types
-- Facts: describing the creation of resources like creation of new accounts, postings and balance updates.
-- Resource mutation: describing the changes of resources like product version updates, account updates, device updates
+    - Ease of integration: changes made to underlying products like `Smart Contracts` don't affect the downstream services that consume events.
+## Event types
+- There are 2 types of events streamed:
+  - `Facts`: describing the creation of resources like creation of new accounts, postings and balance updates.
+  - `Resource mutation`: describing the changes of resources like product version updates, account updates, device updates
 ## Integration and use cases
 ### Improve customer loyalty through real-time tailored insights
 - Posting events are consumed in real time and fed into models to predict cash flow shortfalls and reaching spending limits to alert
@@ -638,15 +639,15 @@ def `pre_posting_hook` (vault, hook_arguments):
     - Enumeration: values have to come from a predefined set of values
     - Date Time: date and time
     - Account: can be used to configure target account for Postings Instructions made by the hooks
-- Smart Contracts do not store states, it's stateless.
+- `Smart Contracts` do not store states, it's stateless.
 - To store parameters of an account, we store them as Contract Parameters in Vault and the hooks will retrieve data from the Vault
 - There are 4 levels of parameters (class Parameter)
-    - Global: shared by all Smart Contracts
+    - Global: shared by all `Smart Contracts`
     - Template: shared by all instances of a Smart Contract
     - Instance: unique to each account
     - Instance (derived): unique to each account, calculate values on the fly, using derived_parameters hook, for example complex calculation such as interest_rate = base_rate + profit_margin_rate + customer_margin
 - Smart Contract expected parameters (class ExpectedParameter) have 2 levels:
-    - Root level: all smart contracts have access to these parameters
+    - Root level: all `Smart Contracts` have access to these parameters
     - Account owned level: unique to each account
     - Currently there is no product level parameters so we can use template level for this purpose
 ```python
@@ -675,7 +676,7 @@ Parameter(
 )
 ```
 ## Shape
-- Smart contracts are python objects that follow predefined shapes
+- `Smart Contracts` are python objects that follow predefined shapes
 - Shapes allow contract writers to validate input, add metadata like UI hinting and permissions
 - Shapes support most common use cases like string shape, decimal shape, date shape, account ID shape...
 - Writers can write their own shapes
@@ -743,7 +744,7 @@ ExpectedParameter(
     ).latest()
     ```
 ## Flag
-- Flags are boolean values stored in Vault against Accounts, Payment Devices and Balances
+- `Flags` are boolean values stored in Vault against `Accounts`, `Payment Devices` and `Balances`
 - They are used to customize the behavior of individual accounts from another
 - Some use cases:
     - Mark an account delinquent when they fail to pay the bills
@@ -836,7 +837,7 @@ ExpectedParameter(
 - Vault Core is built on a distributed microservices architecture and deployed in containers, using Kubernetes to orchestrate
 - Vault Core is cloud-native and banks can choose any vendors
 - Thought Machine also offers Thought Machine hosted environment that follows security standards such as ISO 27001 and SOC2
-- Clients manage the Configuration layer which is comprised of Smart Contracts and Chain of Accounts, they're also responsible for building their own accounting structure and financial products without relying on Thought Machine.
+- Clients manage the Configuration layer which is comprised of `Smart Contracts` and Chain of Accounts, they're also responsible for building their own accounting structure and financial products without relying on Thought Machine.
 - Thought Machine provides the tooling, documentation and training
 - The Platform Layer is common for all clients and is taken care of by Thought Machine
 
@@ -879,10 +880,10 @@ ExpectedParameter(
 - Prod is live client environment, high availability, can hold personal data, 3 AZ within a region.
 - All environment upgrade is coordinated between the client and Thought Machine
 ## Delivery Framework
-- All projects start with a knowledge transfer program with 3 key steps
-  - Access to product library which is comprised of all Smart Contracts, documentation about how to customize these products
-  - Enablement program which provides training for Introduction to Vault, Vault's architecture and Configuration Layer, additional Labs, webinars nd workshops, customized traning program and certification
-- Assigned to an Enablement Manager who will guides through the Enablement process, any engagement will start with scoping and planning. 
+- All projects start with a knowledge transfer program with `3 key steps`
+  - `Access to product library` which is comprised of all `Smart Contracts`, documentation about how to customize these products
+  - `Enablement program` which provides training for Introduction to Vault, Vault's architecture and Configuration Layer, additional Labs, webinars nd workshops, customized traning program and certification
+  - Assigned to an `Enablement Manager` who will guides through the `Enablement process`, any engagement will start with scoping and planning. 
 - The delivery approach will provide informatin such as:
   - How to deploy the configuration layer
   - How to request new features

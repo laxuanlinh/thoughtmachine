@@ -88,7 +88,7 @@
 - Vault Core always ensure that pre hooks and post hooks always happen in order
 
 ## Vault Object
-- Each hook takes in 2 arguments: `vault` and `hook_parameters`
+- All hooks take 2 parameters: `vault` object and `hook_arguments`
 - The vault object allows to access Vault data available to the hooks
 
 ## Float
