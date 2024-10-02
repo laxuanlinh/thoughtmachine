@@ -234,12 +234,12 @@
 ## Audit entities
 - Audit module tracks requests and effects of those requests on the resources in Vault Core.
 - The audit events can be accessed via REST API or Kafka (Audit Streaming API)
-- Audit logs record all incoming requests and responses
-- Action logs record the action that these requests perform on the entities in Vault Core such as accounts or payments and the information changed by these actions.
-- Both log types are immutable and can be acccessed via REST API or Audit Streaming API, they can also be viewed from Operation Dashboard.
-- Audit logs are kept for some time while Action logs are kept indefinitely.
-- While Audit logs remove sensitive information like tokens, it won't remove things like balances, postings or account data.
-- We need to use policies to limit the number of users who can view the Audit logs.
+- `Audit logs` record all incoming requests and responses
+- `Action logs` record the action that these requests perform on the entities in Vault Core such as accounts or payments and the information changed by these actions.
+- Both log types are immutable and can be acccessed via REST API or Audit Streaming API, they can also be viewed from `Operation Dashboard`.
+- `Audit logs` are kept for some time while `Action logs` are kept indefinitely.
+- While `Audit logs` remove sensitive information like tokens, it won't remove things like balances, postings or account data.
+- We need to use policies to limit the number of users who can view the `Audit logs`.
 
 # Financial Principles
 - Unified Postings API
@@ -312,7 +312,7 @@
 - This posting type doesn't expect any further modification of the transaction.
 - It can also be used to debit or credit funds to an internal account, follows the double entry model
 - It allows to specify whether it's an inbound to the customer's account or an outbound from the customer's account - usually to an internal account.
-- Hard settlement can be used in Stand-in payment, when a Payment Gateway cannot connect to the Payment hub despite the authorizatoin and settle postings are accepted, then the Gateway can operate in Stand-in or Offline mode, meaning it accepts the payment and later when the Hub comes back online, it can make a Hard Settlement posting
+- Hard settlement can be used in Stand-in payment, when a Payment Gateway cannot connect to the `Payment Hub` despite the authorizatoin and settle postings are accepted, then the Gateway can operate in Stand-in or Offline mode, meaning it accepts the payment and later when the Hub comes back online, it can make a Hard Settlement posting
 - Another usecase is to reverse a payment or to refund.
 
 ### Custom instruction
@@ -323,8 +323,8 @@
 
 ## Postings lifecycle
 - A customer initiates a payment via their bank app
-- The Payment hub receives the message and call the Postings API to authorize the payment
-- The Payment hub then exchanges messages with the Payment scheme, if all messages are sucessful then it call the Posting API to settle the payment.
+- The `Payment Hub` receives the message and call the Postings API to authorize the payment
+- The `Payment Hub` then exchanges messages with the Payment scheme, if all messages are sucessful then it call the Posting API to settle the payment.
 
 ## Balances
 - There are 2 types of balance: Balance resource and Ledger balance resource.
@@ -880,15 +880,22 @@ ExpectedParameter(
 - Prod is live client environment, high availability, can hold personal data, 3 AZ within a region.
 - All environment upgrade is coordinated between the client and Thought Machine
 ## Delivery Framework
-- All projects start with a knowledge transfer program with `3 key steps`
-  - `Access to product library` which is comprised of all `Smart Contracts`, documentation about how to customize these products
-  - `Enablement program` which provides training for Introduction to Vault, Vault's architecture and Configuration Layer, additional Labs, webinars nd workshops, customized traning program and certification
-  - Assigned to an `Enablement Manager` who will guides through the `Enablement process`, any engagement will start with scoping and planning. 
-- The delivery approach will provide informatin such as:
+
+### Product Library
+- Access to the library of `Smart Contracts`, documentation on how to customize these products
+
+### Enablement program
+- Provides training for Introduction to Vault, Vault's architecture and Configuration Layer, additional Labs, webinars nd workshops, customized traning program and certification
+- Assigned to an `Enablement Manager` who will guides through the `Enablement process`, any engagement will start with scoping and planning. 
+
+### Delivery Approach
+- The delivery approach will provide information about best practices and defined approach for tasks such as:
   - How to deploy the configuration layer
   - How to request new features
-  - How TM delivers new releases and how to consum them
-  - ...
+  - How TM delivers new releases and how to consume them
+  - How to ensure Vault is operationally ready
+  - Migration of existing systems and testing
+
 ## Environments, releases and versions
 - Version 1.0 is pushed and tested in staging environment in week 4 and tested there
 - Version 1.0 is then pushed to pre-prod and tested there in week 7
