@@ -123,3 +123,105 @@ def post_posting_code (postings, effective_date):
 @requires(parameters=True)
 ```
 - In Documentation Hub, under each Hook is a section called Allowed Data Fetchers which specifies which fetchers are allowed, for example for `deactivation_hook`, only `postings` and `balances` are allowed
+
+## Performance impact of Directives
+- Avoid instructing multiple `Posting Instruction Batches` because it will lose atomicity and performance
+- For example, this is ok:
+```python
+posting_instructions = []
+if fee_related_instructions:
+    posting_instructions.extend(fee_related_instructions)
+if interest_related_instructions:
+    posting_instructions.extend(interest_related_instructions)
+return PostPostingHookResult(
+    posting_instructions_directives = [
+        PostingInstructionDirective(
+            posting_instructions = posting_instructions
+        )
+    ]
+)
+```
+- This is not ok because it's using multiple `instruct_posting_batch`:
+```python
+if some_instructions:
+    vault.instruct_posting_batch(
+        posting_instructions = some_instrutions,
+        effective_date = effective_date,
+        client_batch_id = f'BATCH_0{vault.get_hook_execution_id()}'
+    )
+if some_other_instructions:
+    vault.instruct_posting_batch(
+        posting_instructions = some_other_instructions,
+        effective_date = effective_date,
+        client_batch_id = f'BATCH_1{vault.get_hook_execution_id()}'
+    )
+```
+- This is not ok because it's using multiple directives:
+```python
+fees_pid = PostingInstructionsDirective(
+    posting_instructions = fee_related_instructions
+)
+interest_pid = PostingInstructionsDirective(
+    posting_instructions = interest_related_instructions
+)
+return PostPostingHookResult(
+    posting_instructions_directives = [
+        fees_pid,
+        interest_pid
+    ]
+)
+```
+## Performance impact of Fetchers
+- We should always split and optimize the data fetched for schedules because some schedules require a lot of time series data which will impact performance
+- We should only fetch just enough data needed for the schedules
+
+## Performance impact of Schedules
+- Use `EndOfMonthSchedule` type to define recurring monthly schedules so that we don't have to check for invalid date like 30th Feb, therefore remove overheads and improve performance.
+- For example if we want to run a schedule at 12.00PM on 30th every month
+```python
+def execution_schedules():
+    return [
+        (
+            "TEST_EVENT_1",
+            {
+                "schedule_method": EndOfMonthSchedule(
+                    # runs every 30th of each month
+                    day=30,
+                    # at 12PM
+                    hour=12,
+                    # if that month doesn't have 30th then use the first valid day after
+                    failover=ScheduleFailover.FIRST_VALID_DAY_AFTER
+                )
+            }
+        )
+    ]
+```
+
+## Performance impact of Hooks
+- We should not defind empty hooks because they still cost performance
+- All helper functions should be executed by a self contained helper method named `_handle_name_of_schedule` because the code is cleaner and underscore prefix is considered as private functions
+- For example `_handle_accrue_interest()` `_handle_repayment_day()`
+- Try to reuse helper functions across contracts
+
+## Performance testing framework
+- To test and record execution time of `Smart Contracts` executing the schedules and postings and analyzing to determine the how they will perform in production
+- Before performance testing, unit testing, end to end testing and simulation testing are is already conducted
+- Most tests invole `individual` `Smart Contracts` running in isolated environments, but Performance testing tests `multiple` `Smart Contracts` at the same time to see what'd happen to the performance at scale
+
+## Design BAU Performance Testing
+- Clearly define sensible `TPS` and `roundtrip time` for all scenarios, based on BAU production load
+- Ensure `TPS` and `roundtrip time` clearly defines how much time is allocated for Vault
+- Leave some headroom for `growth`
+- Upstream systems will add time and bottlenecks
+- If possible, test end-to-end
+
+## Design Stress Performance Tests
+- Define complex journeys to test
+- The most complicated edge cases are where we can find the performance issues
+- Ensure to test end of day/month/year using your estimated account numbers and posting numbers
+- Test Smart Contract complex scenarios:
+    - Creating `multiple postings` in 1 schedule
+    - Starting `Workflow` in the schedules
+    - Complex `Post posting` scenarios
+    - Posting to `other Vault Accounts` in the schedules
+    
