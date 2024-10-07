@@ -224,4 +224,42 @@ def execution_schedules():
     - Starting `Workflow` in the schedules
     - Complex `Post posting` scenarios
     - Posting to `other Vault Accounts` in the schedules
-    
+    - Post posting rebalancing to multiple saving goals and sub accounts
+    - Complicated schedules such as Payment Due Date on Credit Card accounts
+    - Hybrid scenarios such as incoming postings during schedules
+## Design Contract Performance Testing - Framework
+- Prepare `a realistic data set`, ideally production clone.
+- Test against the data in a dedicated performance testing environment because it will put the system underload
+- Test multiple `Smart Contracts` instead of just 1
+- Monitor and extract result data and metrics of the tests via `Grafana` or `Kafka`
+- Key metrics such as `execution time` and `transactions per second`
+
+## Design Contract Performance Testing - Best practices
+### Parameters
+- Use shapes only when we have multiple parameters with the same properties
+- Don't define new shapes that behave the same as existing shapes
+- Use `Money number` type for all interaction with currency, postings and transfer
+- Default values should serve as the example of values that we expect 
+- When a contract is upgraded and new parameters are introduced, existing default values will be used as actual values
+
+### Hooks
+- Cache results of calls to `vault` object, don't make multiple calls with the same arguments
+- Do not use empty hooks because they still cost some performance
+- Only fetch just enough data for the operations, Vault will check `@requires` to decide which and how much data needs to be retrievied
+
+## Functions
+- Use underscore `_` with helper functions
+- Try to `reuse` functions across `Smart Contracts`
+- Use `Type Hints` in helper functions
+- Don't pass the entire `vault` object into helper functions, only pass necessary arguments
+
+## Postings
+- Consider whether to set `override_all_restritions` to `True`
+- Consider what happens if the account you're posting is blocked
+- Consider if we should reject a posting
+- Only apply restrictions if there are specific reasons
+- It's useful to provide Instruction Details in the form of key-value such as `Description` or `Event`
+- Try to keep number of `Posting Instruction Batches` as small as possible, ideally 1, if we have to use multiple batches then can add index to the `client_batch_id`
+- Do not posting `Posting Instruction Batches` in a `loop`
+- Each `client transaction ID` should be unique and contain just enough information to trace including `hook_execution_id`
+
