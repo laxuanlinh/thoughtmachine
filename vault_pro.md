@@ -263,3 +263,128 @@ def execution_schedules():
 - Do not posting `Posting Instruction Batches` in a `loop`
 - Each `client transaction ID` should be unique and contain just enough information to trace including `hook_execution_id`
 
+# Smart Contract Testing
+## Unit testing and Simulation testing
+- The `Smart Contract SDK` is a Python package which provides unit testing utilities and some examples for unit testing
+- Simulation testing is when we register a `Smart Contract` inside an `in-memory approximation` of Vault known as `Contract Simulator`
+
+## Building a testing framework
+- Typically we build a `test suite` and use a testing framework like `pytest` to run
+- Using Vault classes in the SDK and Mock objects to simulate the inputs and conditions 
+### Unit testing
+- `Unit testing` can be automated so it's the cheapest to run.
+### Simulation testing
+- `Simulation testing` involves testing more complex scenarios with multiple events that can represent real business cases, provide a higher degree of confidence
+- `Simulation testing` can also be automated but it requires more configuration and more `expensive` and `slower`
+- Both these testing can be done without waiting in real time.
+### System testing
+- `System Testing` provides the `most accurate` testing result, it tests most scenarios, in multiple environments but it also `requires connection` to Vault
+- `System Testing` should be used to test all cases not covered by `unit testing` and `simulation testing`
+- `System Testing` can also be automated but it requires even more configuration and the most expensive one, but it provides the highest degree of confidence
+### Manual Testing
+- `Manual Testing` is when we upload a `Smart Contract` to Vault and let it run in real time.
+- `Manual Testing` can test specific limited scenarios, removes all isolation and uses a real UI.
+- `Manual Testing` cannot be automated and requires the most configuration and setup, it requires significant matter knowledge and allows more free-form testing
+
+## Unit Testing
+- Smart Contract code is organized around `Expected Parameters`, `Metadata` and `Hooks`
+- Since Unit Testing only tests the Python code, it `doens't cover Expected Parameters` and only `part of Metadata`
+- Unit testing is cheap, fast to run and can run in local, multiple tests can run at the same time in batch
+- But it's limited within the functions, cannot test againset environment, not all scenarios can be tested
+- API cannot be tested, quality of mocking and assertions depends on the writer, Python unit testing standards are not constant
+- Should only be used to test specific functions and their edge cases, should cover all lines
+- Example:
+    - Computing the interest rate:
+        - If balance >= 30_000 USD => interest = 15%
+        - Else interest = 7%
+    - Test cases:
+        - Balance = 0 expected rate = 7%
+        - Balance = 29_999.999 USD expected rate = 7%
+        - Balance = 30_000 USD expected rate = 15%
+        - Balance = 30_000.1 USD expected rate = 15%
+        - Balance = -30_000 USD expected rate = 7%
+- We should always use libraries like pytest/unittest, classes from Contracts SDK and Mock objects.
+- Each test should have a meaningful name, aim for 100% test coverage
+
+## Simulation Testing
+- Can cover `Metadata`, `Expected Paramters`, `Hooks` and `Vault Helpers`
+- Runs `2nd fastest`, covers more scenarios, in the `past or in the future` and runs Smart Contracts against `simulated Vault sandbox`
+- Can simulate `existing products` in Vault, no change made to the environment needed
+- `Postings and Balances` services are simulated so that posting instruction directives result in updated postings and balances
+- `Scheduler` is also simulated so all scheduled code is executed at required times
+- `No real time`, all takes `0 second` to run, `no new resources` are actually created
+- `Cannot simulate actual API calls` via environments, `cannot run in local` because it has to connect to an endpoint (`/v1/contracts:simunate`)
+- Simulation testing `requires access to environment` with actual Vault instances, it cannot test `Restful` or `Streaming API` and currently it's not supporting `event_timezone`
+- Simulation should be the `majority` of tests, it can cover complex business scnearios that unit testing cannot
+- Example: 
+    - Enfoce max balance 1000 USD
+    - Test cases, running simulation for 7 days
+        - Balance = 0, deposit 100 USD => accepted
+        - Balance = 100, deposit 500 USD => accepted
+        - Balance = 600, deposit 300 USD => accepted
+        - Balance = 1000, deposit 100 USD => `rejected`
+- Keep simulation tests `as short as possible` because they have performance drawbacks
+- Each Contract interaction (schedules, hooks) should be tested with `at least 1` simulation test
+- Simulation tests should be run in `CI pipelines` or can run `individual/batch` of tests during development
+
+## System Testing
+- Test `all services` and `interfaces` that Smart Contracts interact with with little to no test isolation
+- Contract and Workflow testing `interacts directly` with Vault `Restful` and `Kafka`, `except for UI` because Workflow gets data from Kafka rather than Vault Apps
+- System Testing should be used to cover all scenarios that Unit Testing and Simulation Testing cannot cover
+- It offers the most accurate, covers the most cases and highest degree of confidence
+- But it's also very expensive, requires connection to Vault environments
+- Example:
+    - Make time deposit Smart Contract
+    - Cases:
+        - Upload a smart contract
+        - Create a customer
+        - Create a time deposite account inside the smart contract
+        - Clean up
+- Should create dummy IDs for testing
+- After testing, there should be a process to clean up the environment:
+    - Zero out or remove all accounts
+    - Mark customer as decease or inactve
+    - Delete all processes generated
+## Manual Testing
+- Can test all or specific elements, can be used to test either very complex scenarios or simple ones against real insetance in dev or QA environments
+- `Not really any benefits` since most scenarios should be covered by `System Testing`, could be useful to test some edge cases, corner cases or race conditions
+- Time consuming, expensive to setup
+- Example:
+    - Create an account using API
+    - Add funds
+    - Check the next day if interest has been calculated correctly
+    - Create a second account and transfer funds
+    - Check UI if the transfer is successful.
+- We should only use Manual Testing sanity test other tests or to help QA come up with ideas about System/Simulation testing
+
+## Debugging Smart Contracts
+- Use logging, print or IDE to debug 
+- Calls to Vault Mock can be seen by outputing `mock_vault.mock_calls`
+- If contract behaviors are not in line with expections then we can:
+    - Can return contract notifications for hooks containing debug data including parameter values or calculation results
+    - Results returned from `simulation test` contain the information about the test
+    - For `System tests`, data can be seen in `Operations Dashboard's messages section`
+    - Add a `dummy posting` containing debug information in the `instruction details`, the result can be seen in the response object
+    - `Exceptions` can be seen in `Service Logs`
+- pre_posting_hook is in hot path so it's limited in the directives it can return to show the reason why it's rejected so we can add more details to the returned response to let us know what went wrong
+```python
+if disallowed_denominations_used:
+    return PrePostingHookResult(
+        rejection = Rejection(
+            message=f"Cannot make transaction in denomination: "
+            f"{', '.join(disallowed_denominations_used)}."
+            f"Transactions must be in {allowed_denomination} only",
+            reason_code=rejectionReason.WRONG_DENOMINATION
+        )
+    )
+```
+## Code Coverage
+- When running a test in Vault, `2 files` are generated
+- The report file contains `high level test coverage report`
+- The report.xml file contains the `line number` of covered and uncovered code
+- Coverage is a company standard, we should aim for 100%
+- We should test edge cases and cover all calculations
+- If it's not possible to cover a line, we need to check if it's possible to refactor to make the code or testable
+- Sometimes metadata or balance addresses can drag down coverage because unit tests don't call them, this is expected
+- The `Inception products library` contains tests to cover all testing areas.
+- The `Contracts SDK` contains `contracts_api` package which we can use to import `all Contract API classes` and types needed for testing
