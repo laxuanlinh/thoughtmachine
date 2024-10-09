@@ -263,3 +263,131 @@ def execution_schedules():
 - Do not posting `Posting Instruction Batches` in a `loop`
 - Each `client transaction ID` should be unique and contain just enough information to trace including `hook_execution_id`
 
+# Restful API integration
+## Introduction
+- Restful API is for synchronous interactions and Kafka streaming API is for real time data comsumption. These are 2 primary interfaces to integrate with Platform Layer
+## Benefits
+- `Idempotency`: `identical requests` return `identical responses`, for requests that modify the state, a unique `request_id` is assigned
+- `Public`: can be used with an `unlimited` number of systems and apps
+- `Convinient`: Manages `external file references`, `validate requests`
+- `Security`: `Access token`, `field masks`, `HTTPS`
+
+## Vault Core API
+- It's Restful only, uses JSON format
+- Methods: GET, POST, PUT and DELETE
+
+## Request Components
+- URL, URI, parameters...
+- Headers: `X-Auth-Token`, generated initially by Vault and can be provisioned by `Core API` or `Ops Dashboard` later
+- Optional headers like `X-On-Behalf-Of-Customer-ID`
+
+## Create a new account
+- Example of how a new Account is opened
+  - Customer asks the bank to open a new account
+  - Bank confirms the request is being processed
+  - The request is routed though bank gateways
+  - Check customer's credentials and validity (KYC, AML, Credit)
+  - Call Customer endpoint of `Core API`
+  - Send notification that the process of account creation has been commenced
+  - Call `/v2/account` endpoint to create a new `Account Record` (status `Pending` or `Opening`)
+  - An instance of `Smart Contract` is `associated` with the new account
+  - The new record is forwarded to the `Core Streaming API`
+  - `Notification` is sent to the customer
+- The request to create a new account might look like this
+```JSON
+{
+    "request_id": "value",
+    "account": {
+        "id": "value",
+        "product_id": "value",
+        "product_version_id": "value",
+        "permitted_denominations": [
+            "value",
+            "value"
+        ],
+        "status": "ACCOUNT_STATUS_OPEN",
+        "opening_timestamp": "value",
+        "stakeholder_ids": ["..."]
+    }
+}
+```
+- And the response might look like this
+```JSON
+{
+    "id": "123123",
+    "name": "value",
+    "product_id": "value",
+    "product_version_id": "value",
+    "permitted_denominations": [
+            "value",
+            "value"
+        ],
+    "status": "ACCOUNT_STATUS_OPEN",
+    "opening_timestamp": "value",
+    "closing_timestamp": "value",
+    "stakeholder_ids": ["value", "value"]
+}
+```
+- For an account to be opened, the `Customer ID` must exist so that `KYC/AML/Credits` processes can be run, the account is associated with a Product of Customer's choosing (which is a `Smart Contract version`). 
+- The status could be Open or Pending Open depending on the workflow of the bank
+- `/v1/customers`: get, create, update, batch get with list of customer IDs, search for customers
+- `/v2/accounts`: get, list, create and update customer accounts
+- When an account is created successfully, a message is populated to this topic `vault.core_api.v2.accounts.account.events`
+
+## Transfer funds
+- Example of transferring funds:
+  - Customer initiate request to send 500 USD to another account
+  - Bank checks account balance
+  - Bank checks credentials and validity
+  - Bank debit from source account and credit to beneficiary account, update account balance
+  - `Core API` uses customer ID to verify the customer, update balances and stream the result to `Streaming API`
+- `/v1/balances/live`: to `view` customer's balances
+- `vault.core.postings.requests.v1`: Posting API's topic to `request` to send funds
+- `vault.core.postings.responses.v1`: Posting API's topic to `retrieve` the result
+- `/v1/posting-instruction-batches`: to create `high priority` Posting Instruction Batches
+- When a posting being made, messages are sent to these topics `vault.core_api.v1.balances.account_balance.events` and `vault.core_api.v1.postings.posting_instruction_batch.created`
+
+## Update parameters
+- Example of updating account parameters
+  - After using the account for a while, the customer is entitled for a credit increase
+  - The bank receives customer data from Credit Bureau
+  - The bank combines with its own data and decide whether to increase/decrease or keep the customer's spending limit
+  - The bank update parameters using Core API and sends notifications to the customer
+  - The customer logs into bank app and found that spending limit has increased
+- `/v1/parameters`: get, batch get, create and update parameters
+- `/v1/parameter-values`: get, batch get, create and update parameter values
+- When a parameter is updated or created, messages are sent to `vault.core_api.v2.accounts.account.events`, `vault.core_api.v1.parameters.parameter.events` and `vault.core_api.v1.parameters.parameter_value.events`
+
+## Create restrictions
+- Example of creating and applying restriction sets
+  - AML system detects abnormal activities on the account and reports to the bank
+  - The bank flags the accoutn which initiates a workflow to creates and applies restrictions on the account
+  - Create an account restriction set
+  - Call account endpoint, update account record and apply the restriction set
+  - The bank opens an investigation on the activities
+  - The bank decides whether to remove the restrictions or not
+- Vault can create restrictions on 3 levels: `Customer`, `Account` and `Payment device` depending on the severity
+- If the malicious activity comes from the account or payment device only then the restriction is created for account or payment device
+- We can use Ops Dashboard to create a Restriction Set Definication where we can specify the level, which activities we want to restrict
+- The flag set by the AML will trigger a workflow to create a restriction set with exceptions.
+- When applying restrictions, bank will factor in these exception to reduce the punitive effects
+- For example when apply Prevent Credit at Payment Device level, we can also select `prevent_credits_exemption_conditions` to add conditions in which is restriction is not applied
+- The parameters of exceptions are included as key-value inside Posting Instruction's `instruction_details` field
+- `/v1/restriction-set-definition-versions`: list, batch get or create a new restriction set version
+- `/v1/restriction-sets`: list, batch get, create, update a new restriction set
+- When a new restriction set is created or updated, messages are sent to topic `vault.core_api.v1.restrictions.restriction_set.events`
+
+## Close an account
+- Example of account closure
+  - Customer intitiates request to close an account
+  - The bank checks if account's status is `Open`
+  - The bank checks if balance > 0
+  - The bank checks parameter whether any restrictions prevent account closure
+  - The account cannot be a joint account as it requires authorization from other stakeholders
+  - A check if there are no outstanding account/product version updates
+  - The customer receives a notification that the account has been closed
+  - A request to close account is queued
+  - This request executes `deactivation_hook` and the account's status is updated to Closed, all schedules are disabled
+- To close account, we still use `/v2/account` and `/v1/customer` to close
+- `/v1/balances` to check or update balances
+- After the account is closed, a message is sent to topic `vault.core_api.v2.accounts.account.events`
