@@ -518,3 +518,208 @@ if disallowed_denominations_used:
 - `/v1/balances` to check or update balances
 - After the account is closed, a message is sent to topic `vault.core_api.v2.accounts.account.events`
 
+# Configuration Layer Utilities
+- CLU is a command line interface for configuring resources
+- Resources including smart contract, product, product version, permissions, roles, internal accounts, supervisor contract, workflow policies
+- It sits between users and Vault API to manage external file references, it's idempotent, if we import a file twice it won't affect anything
+
+## Setup
+- `Access token`: only minimum access to the resources is provided to the service account
+- `Supported resources`: access control, Core API, products, workflows
+- `Create resource files`: create 1 or more resource files
+- `Create manifest file`: defines a collection of resources uploaded and managed by CLU
+
+## Usage
+- `Validation`: CLU provides the ability to validate resources before importing
+- `Exit Codes`: upon running the CLU, the results are codes that can be `success`, `failure` or `partial success`
+- `Activation`: when importing, there is an option to activate resource on import, this will set the resource as latest version
+- `Output format`: plain text or JSON
+
+## Benefits
+- Efficient mechamism to import resources into Vault instance
+- Can import and update
+- Provides clear feedback on failed imports/updates
+- Secured HTTPS
+- Consistent and generic resource file format which has a payload field that can map 1-1 to existing examples in docs
+- Allows dependencies between resources fields in different resources after import
+- Automates extraction and creation of resources
+
+## Prerequisites
+- Vault is installed and running
+- `CLU version` is compatible
+- `Service Account` is created
+- CLU can `access` Vault API from the computer it's running on
+- HTTPS
+
+## CLU workflows
+- Check if the resources are on the `supported resources` list
+- Add `Resource ID` to the `manifest.yaml` file
+- Add new resources or copy resources from configuration tool to the CLU
+- Run validate to make sure that all resources are valid
+- Run the CLU to create resources synchronously in Vault
+
+## Methods and Options
+- The correct order for commands is:
+    - Command type: `import`, `validate`, `convert`
+    - Environment variables
+    - Configuration file
+- Convert checks if there is an ongoing Plan Migration, `attempts to create` supported resources, `ignore` unsupported ones.
+- `All 3` command types validate resources
+- Options: --config, --auth-token, --activate-on-import ...
+- CLU supports config files written in JSON or YAML
+- `manifest.yaml` is in the root directory, comprised of supported Resource IDs that are to be imported to Vault
+```YAML
+pack_version: 1.0.0
+pack_name: Configuration pack name
+resource_ids:
+- current_account
+- supervisor_contract_resource_id
+- supervisor_contract_version_resource_id
+```
+- `resource.yaml` / `resource.yaml` can be in the same directory as `manifest.yaml` or can be in subdirectories, they define the configuration for resources. They can have any names but have to have suffix `resource.yaml` for `single` resource definition or `.resources.yaml` for `multiple` definitions
+- It's not advisable to store access token in he config files
+- If the flag activate-on-import is set then Vault will execution activation after successfully imports `manifest.yaml`
+- To set resource version as active, can simply set `activate` flag to true
+
+## Configuration Pack
+- Self-contained logical unit that contains manifest and resources and external files
+- External files are any markup files, Python code for Smart Contract ...
+
+## Configuration Bundle
+- `Collection of CLU packs` that have been grouped together so that they can be executed simultanously
+- We can bundle CLU packs in 1 directory and run import, validate, convert by providing the `path to the directory`
+- Manifest files can have different names but must have suffix `.manifest.yaml`
+- All Resource IDs have to be `unique` across all resource files
+- Resources within a bundle can only `reference` to other resources `within their own pack`
+
+## Dependencies
+- Dependencies can be specified in the `payload` field that reference to external resources
+- Specify dependencies using syntax `&{dependency_resource_id:dependency_resource_field}`
+- If a resource depends on a failed resource, it will fail to be imported as well
+- Some resources don't have `vault_id` until they are created, for example `Smart Contract Version`, unlike `Supervisor Contract version`
+- For `Supervisor Contract version`, the `vault_id` is a reference to `current_account` which is the version of the `Smart Contract` it supervises
+```Python
+api='3.0.0'
+verson='1.0.3'
+supervised_smart_contracts=[
+    SmartContractDescriptor(
+        alias='example alias',
+        smart_contract_version_id='&{current_account}'
+    )
+]
+```
+- Definition of the dependency resources must exist within the same resource pack
+
+## How to import CLU resources
+- In the root directory, create a `manifest.yaml` file and specify `pack_version`, `pack_name` and `resource_ids`
+- Create a resources subdirectory and within it create a code_files subdirectory where we will create Product Version file with Contract code
+- Within the resources directory, create a contract resource and contract resource version file
+- Import using CLU
+```
+root:
+    - manifest.yaml
+    - resources:
+        - code_files:
+            - product1.py
+            - product2.py
+        - contract resource
+        - contract resource version
+```
+- An example of a `resource.yaml` file
+```YAML
+---
+type: SMART_CONTRACT_VERSION
+id: current_account
+payload:
+    product_version:
+        display_name: Current Account
+        code: @{current_account.py}
+        product_id: current_account
+        params:
+            - name: denomination
+              value: 'GBP'
+            - name: addition_denominations
+              value: '["USD", "SGD"]'
+```
+- The deployment process doesn't remove any resources, it only creates new ones or updates
+- After creating all files, we can run:
+```zsh
+./clu validate manifest.yaml
+```
+
+- There are 2 ways to automate deployment:
+    - Use Core API to write integration in merge pipeline so that it can make relevant calls to upload new financial product
+    - Use CLU integrated with the merge pipeline to upload 
+
+## CLU support for Product Library installation
+- Use the CLU to load products from Inception library
+- Includet he latest version of CLU and Inception library in the directory
+- The manifest file contains all references to all resources required for a specific package
+- The resource files contain a set of resources like workflow, internal smart contract, flags ...
+
+## Add CLU to CI/CD pipelines
+- Create a `Configuration package 1` to deploy new Smart Contracts to `DEV` environment, test and verify
+- Run `simulation testing` via Core API's simulation testing endpoints against the `DEV` environmemt
+- Deploy to the `Configuration package 1` to `STG` environment
+- `End-to-end testing` in `STG` environment using other services such as Customer Application which then execute API calls to Core API, Postings API or Workflow API
+- Changes may be required so we create `Configuration package 2` and deploy to `STG` again
+- Acceptance testing passes, we extract the `Configuration Layer` of `STG` environment and deploy it to `PRE-PROD`
+- We can use different versions `.manifest.yaml` file for different environments
+
+## How to write manifest.yaml
+- Manifest only has 3 fields:
+    - pack_version
+    - pack_name
+    - resource_ids
+```yaml
+pack_version: 1.0.0
+pack_name: Configuration pack name
+resource_ids:
+    - current_account
+    - saving_account
+    - supervised_saving_account
+```
+
+## How to write resource/resources.yaml files
+- Resource files have the following fields
+    - type(*)
+    - id(*)
+    - vault_id: some resources don't have this field because we don't know their id until after creation
+    - vault_version: unused
+    - on_conflict: what happens if this resource already exists `IGNORE`, `UPDATE` or `SKIP`
+    - payload(*): product version and migration strategy, product version has product ID and ref to the Python file, later converted to JSON to call relevant APIs
+- Resources files have the field `resources` in addition to the above fields in order to list multiple resources
+- Example of a resource file:
+```YAML
+---
+type: SMART_CONTRACT_VERSION
+id: saving_account_contract
+payload: |
+    product_version:
+        display_name: Saving Account Contract
+        product_id: saving_account_contract
+        code: '@{saving_account.py}'
+    migration_strategy: SMART_CONTRACT_VERSION_STRATEGY_NEW_PRODUCT
+```
+- Example of a resources file:
+```YAML
+---
+resources:
+  - type: SMART_CONTRACT_VERSION
+    id: saving_account_contract
+    payload: |
+        product_version:
+            display_name: Saving Account Contract
+            product_id: saving_account_contract
+            code: '@{saving_account.py}'
+  - type: SUPERVISED_CONTRACT_VERSION
+    id: supervised_account_version
+    vault_id: supervised_account_version_1
+    payload: |
+        supervisor_contract_version:
+            id: supervised_account_version_1
+            supervisor_contract_id: @{saving_account_contract}
+            display_name: Supervised Account Contract
+            description: Supervised Contract for Account Contract
+            code: '@{code_files/supervisor.py}'
+```
