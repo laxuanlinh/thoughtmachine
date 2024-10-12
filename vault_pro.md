@@ -723,3 +723,15 @@ resources:
             description: Supervised Contract for Account Contract
             code: '@{code_files/supervisor.py}'
 ```
+
+# Vault Overview, Tooling and Infrastructure
+## Architecture
+- Vault is deployed to AWS but can be deployed to other cloud providers
+- All technologies are not vendor-locked and can be swapped out with others, for example EKS can be changed to managed Kubernetes clusters
+- On the outside, it has a `Vault VPC` that spans across multiple `Availability Zones`
+- Vault Core services are deployed to Kubernetes (EKS)
+- For database, Vault is using `RDS` with Postgres DB with a `master` instance and a `hot-standby` instance, which `replicate synchronously`
+- For managing secrets, Vault is using `Hashicorp` but it can be swapped with `AWS Secrets Manager` as well
+- For monitoring, it's using `Prometheous` for metrics collection and `Grafana` for visualization
+- For logging, it's using `fluentd` to collect logs, `ElasticSearch` for log searching and `Kibana` for visualization
+- For networking, `Kubernetes Ingress` is used to `routing/load balancing` for traffic from outside while `Istiod` is used for `network mesh` for communication between pods
