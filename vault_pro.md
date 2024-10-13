@@ -734,4 +734,32 @@ resources:
 - For managing secrets, Vault is using `Hashicorp` but it can be swapped with `AWS Secrets Manager` as well
 - For monitoring, it's using `Prometheous` for metrics collection and `Grafana` for visualization
 - For logging, it's using `fluentd` to collect logs, `ElasticSearch` for log searching and `Kibana` for visualization
-- For networking, `Kubernetes Ingress` is used to `routing/load balancing` for traffic from outside while `Istiod` is used for `network mesh` for communication between pods
+- For networking, `Kubernetes Ingress` is used to `routing/load balancing` for traffic from outside while `Istiod` is used for `service mesh` for communication between pods
+
+## Kubernetes
+- For tracing, Vault is using `Zipkin`, probably will move to `Jeager`
+- In terms of networking, Vault is a bit different to other legacy systems is that it's using Mutual TLS where both the server and client have to present TLS certificate so that the other can verify
+- Vault supports HTTP and gRPG load balancing
+
+## Installation
+- There is a YAML file that handles the configuration where the client can configure across all services in Vault, for example whitelisting rules, service level information...
+
+# Downstream events from Vault
+## Overview
+- Vautl has 2 APIs to interact with external services, Restful API and Kafka
+- `Restful API` supports Core, Postings, Payment Hub, Audit, Access Control, Data Loader API while `Kafka` doesn't support `Access Control API` 
+- Vault uses streaming API across all components thus they can stream all state change events to downstream services to do things like ML, analysis, fraud detection...
+- There are 2 data types streamed: `fact` (Posting creation, balance update) and `resource mutation` (account update, contract version update...)
+
+## Architecture
+- All state change events being streamed to downstream services is useful to inform them to take action for example when a new account is created, a message is sent to other services to send emails, create bank statements and issue cards
+- Vault uses Transaction Outbox pattern to ensure `at least once delivery`
+- Every events streamed to Kafka is actually recorded in a database in 2 tables `resource_table` and `journal_table`
+- For example when a new account is created:
+    - Account Service creates a commit intent to the `resource_table` in the DB
+    - Account Service sends a message to Kafka and marks the event as `Delivered` in the `journal_table`
+    - If Kafka suffers any outage, when it's back online, a Poller will check if there are any missing events in the `journal_table`, if yes then it will pull the missing events to Kafka and at the same time mark the events as `Delivered`
+- The Poller knows the missing events because Disaster recovery job marks each outage with a start and end timestamp, so the Poller can just find events between these start and end timestamp
+
+## Use cases
+
