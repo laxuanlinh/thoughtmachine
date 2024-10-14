@@ -761,5 +761,79 @@ resources:
     - If Kafka suffers any outage, when it's back online, a Poller will check if there are any missing events in the `journal_table`, if yes then it will pull the missing events to Kafka and at the same time mark the events as `Delivered`
 - The Poller knows the missing events because Disaster recovery job marks each outage with a start and end timestamp, so the Poller can just find events between these start and end timestamp
 
-## Use cases
+## Events relating to moving money
+- Vault is only 1 of the multitude of systems for recording fund movements
+- All of these movements are summerized and aggregated into a General Ledger
+
+### Card schemes and processes
+- Vault can process requets from any card processing schemes but it's not a card scheme handling system
+
+### Fund movements and 
+- `Close loop account` (CLA) is implemented by Vault using `Restriction set definition version` at `payment device` level
+- `Responsiveness`: near real-time data access allows banks to quickly adapt to business change
+- `Managing Risks`: near real-time granular data support advanced anaytics capabilities to quickly flag suspicious transactions
+- `Ease of integration`: Vault uses Payment device with links to multiple accounts that can receive and initiate postings
+
+### Payment Hubs and Gateways
+- `Vault Payment `is a standalone payment processing platform that can issue and process on Mastercard rail.
+- `Vault Payment` can be integrated with `Vault Core` or legacy systems
+
+### Liquidity management 
+- Vault supports dynamic management of intraday liquidity risk so that bank can manage liquidity position and can meet payment obligations
+- Liquidity allocation is performed dynamically, enabling automation/scheduling of liquidity position so that banks can better manage buffer and handle unexpected spikes
+- Postings and balances can be used to determine customer's liquidity position across products and internal accounts, capturing the most granular data in near real-time
+- Vaul is the single source of truth for liquidity
+
+### Liquidity management architecture
+- `Payment engine` receives payment from card schemes and make API calls to `Postings API`
+- Vault uses `Kafka` to stream out postings and balances events, Kafka keeps these events in queue and waiting for downstream systems to consume
+- `Stream processing engine` consumes the events from postings and balance topics and save it to the `database` or `repository` for `offline analytics`
+- `Stream processing engine` streams events to `real-time monitor platform` that tracks liquidity in real-time
+- Real-time schedules run a `forecasting model` using real-time and historical data 
+- The real-time liquidity platform `informs` a `liquidity service` to manage liquidity position in Vault using `Postings API`
+
+## Events relating to Data and General Ledger
+### Support data integration and General Ledger
+- All events related to postings are streamed as posting instruction batches, these events are consumed to update the `General Ledger`
+- These events are usually windowed into a specific day, using the cut-off time
+- For regulatory reports, streamed events are not enough for banks to build their own view of this window so Vault also support API calls to the Core API to do `Integrity Check`, `Posting Matching`, `Balance Matching` and `Discrepancy Resolution`
+
+### Real-time general ledger and reconciliation integration
+- Events allow General Ledger to do reconciliation in real-time at any time instead of waiting until EoD
+### General Ledger and reconciliation integration architecture
+- Vault processes postings and balances and generates postings and balances events
+- Vault streams out posting and balance events to Kafka, along with other events like parameter updates or account updates (`Operation events`)
+- An `Operational Data Store` consumes these events while `General Ledger postings` are also streamed to `General Ledger` to update
+- The bank queries `Core API` to get `accurate balances` as of the cut-off time.
+- The bank carries out `reconciliation` by `comparing data` from Core API and General Ledger, any `discrepancies` are fixed by calling the `Postings API`
+- `Operation events` will indicate the completion of a `Schedule Tag`, which can trigger the `final round` of reconciliation before EoD position is produced
+- `Reports` are generated once the bank is confident that `all data` has been received from Vault
+
+## Events relating to Customer channels
+- Data streamed from Vault can be used to run analysis to build insights about customer habits, preferences which support future decision making whether manual or automated
+
+### Customer insights and personalized product offerings
+- Clients System of engagement calls Core API to create/mutate resources
+- Vault streams mutation events to Kafka
+- Kafka streams events to Stream processign engine (Google dataflow, Apache Flink...) for aggregation, deduplication, transformation
+- Data is saved in a data store (Google BigQuery) for analytics or model training
+- Stream processing engine interacts with a trained model by providing real time events and receives insights
+- Insights are pushed to the customer
+- When an opportunity for a new product is detected, Pricing and credit risk engine is called to produce a suitable offering
+- Pricing and credit risk engine calls Vault to simulate the product given the terms, the received results are checked against 
+
+### Customer notifications
+- Vault streams out events about postings, balances, accounts ...
+- Events are consumed, enriched and transformed by a machine learning model and a notification request is sent to a notification engine
+- The Notification engine distributes the notifications to various providers
+
+## Events relating to Customer knowledge
+### Improve customer royalty
+- Use streamed data, banks can use trained models to provide predictive alert when a spending limit is reached, categorize transactions into geo-location, type of merchange or spend classification, if/else to transfer salary into saving accounts or rewards customers for saving $20 a month.
+- Payment engine inititates postings via Postings API
+- Vault streams posting and balance events to Kafka
+- Events are consumed by Stream processing engine
+- Data is saved to data repository for offline training
+- Stream processing engine feeds data into System of engagement where data is enriched and transformed in to customer-facing transactions
+- Leverage System of engagement to develop reward measures, gamification offers...
 
