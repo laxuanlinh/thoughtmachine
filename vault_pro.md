@@ -837,3 +837,46 @@ resources:
 - Stream processing engine feeds data into System of engagement where data is enriched and transformed in to customer-facing transactions
 - Leverage System of engagement to develop reward measures, gamification offers...
 
+
+# Building a Chart of Account in Vault
+## Introduction to Chart of Accounts
+- A chart of account is an index of all financial accounts in a general ledger of a company 
+- It contains all transactions within a period, usually broken down into subcategories
+- The range of categories, subcategories and types of attributes that contribute to a category can vary across financial institutions but no more than 6-7 attributes
+- The Vault CoA contains 2 types of account Customer Account and Internal Account
+## Vault Core System of Record
+- Each account is first partitioned by asset type such as cash, commercial money ...
+- Then each asset type is divided by denomination
+- Each denomination is divided into addresses, each denomination will have different addresses for different purposes
+- Every address has 3 phases, pending outbound, pending inbound and committed
+## How to build chart of account
+- To create a customer account, we need to identify how many customer accounts and which accounts are required, ie do we need to keep both existing closed and open or just open accounts
+- We also need to decide whether to manually create accounts or use `Data Loader API` and `Posting Migration API`
+- `Internal accounts` can be manually created in Vault via API `/v1/accounts` with `account.type=ACCOUNT_TYPE_INTERNAL`
+- A more efficient way to create multiple `internal accounts` is to use `Configuration Layer Utilities`, before that you need to specify the `smart contract` to be associated with the `internal accounts`
+- `Internal accounts` can be used to customize accounting models and replicate a business-specific chart of accounts
+- `Internal accounts` reflect some operational balances of the bank so their balances can be:
+    - Based on some payment integration like nostro accounts
+    - Used by Smart contracts to capture profit and loss
+    - Defined as either Liability or Asset
+- `General Ledger `is the single source of truth
+- All postings and changes to the `Posting Ledger `are streamed to Kafka as `Posting Instruction Batches` so that they can update the `General Ledger`, these events are windowed into "days"
+
+## Vault Product ledger capabilities
+- Vault maintains product ledgers for all business lines of a bank, following the double bookkeeping practice
+- There are 2 product ledgers, `Balances Ledger` and `Postings Ledger`, they interact with each other
+- The Balances Ledger contains 2 types of balances, customer account balance and internal account balance
+- Customer account balances and accounting behaviors are managed by Smart Contracts
+- `Internal accounts (Line of Business)` are used to manage internal accounts and can be mapped to General ledger by account IDs
+- These accounts are `defined by banks`, according to the `Chart of Accounts` structure used for each `Line of Business`
+- For example, we have a loan account:
+    - Vault records a principal balance in the loan account's principal address
+    - Vault then creates a corresponding Asset balnace in the internal account
+    - Vault calculates accrued interest during the interest lifecycle in the interest address and records corresponing balance in the internal interest address
+    - For fees, Vault records a fee in the fee address and records a corresponding fee in the internal fee address
+## Maintaining GL money movements outside of Vault
+- Vault is the General Ledger and cannot adhere GAA practice so it's recommended to manage General Ledger money movements outside of Vault
+- To manage GL using a 3rd party system, we need Event type and Product type
+- When charging interest, Smart Contracts make 2 posting instructions
+- These posting intructions contain metadata that the GL third party will consume and make postings to GLx
+- When the customer wishes to repay, a single external posting instruction is made to the Vault, Smart Contract rebalances the account accordingly and the 3rd party GL system again consumes the events and makes postings to the GL
