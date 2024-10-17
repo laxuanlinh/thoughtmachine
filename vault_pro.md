@@ -944,3 +944,60 @@ resources:
   - `Product ledger`: provides real time, 24/7 view related to many products, owned by product owners and business unit management
 - General ledger and Subledger solutions could be provided by SAP, Oracle 
 - Product ledger solution can be provided by Thought Machine
+
+# Kafka topics
+## What does streaming entail
+- While all Vault versions are shippped with Kafka, it's not intent for production, clients need to install their own Kafka or they can use other managed services like MSK, Confluent Platform/Cloud as long as the version is compatible
+- Kafka is hosted on multiple servers that span across multipel regions and AZs, some of them are storage layer or brokers, some of them run Kafka Connect that can integrate with other sources like DB or other Kafka clusters
+
+## Kafka architecture
+- `Producer`: producing events
+- `Broker`: `multiple` brokers, `stateless`, each can handle thousands of requests per seconds
+- `Zookeeper`: `keeps states` of all brokers and elect new broker leader, informs producers/consumers about `failure`
+- `Consumers`: downstream services
+- When the entire Kafka cluster is down, when it's back on, a `Poller` job will poll the `journal table` to check if Kafka missed any events and resend them, this is Disaster recovery, using `Transaction Outbox` pattern.
+
+## Topics
+- Kafka can have hundreds of thousands of topics, some common topics:
+  - Vault.api.v1.postings.posting_instruction_batch.created: status of a PIB when being created
+  - Vault.core.internal.postings.requests.v1: internal posting request
+  - Vault.core.internal.postings.responses.v1: internal posting response
+  - Vault.core.postings.post_processing_failures: post posting response post_processing_failures
+  - ...
+- There can be unlimited number of producers and consumers, each consumers can subsribe to multiple topics
+- Each topic is partitioned into multiple partitions so that multiple consumers can read from a topic/partition in parallel
+- Messages are ordered and served in a FIFO manner, each message has an offset number
+
+## Streaming APIs
+- Vault core has 3 `main` APIs that utilize streaming:` Core API`, `Postings API` and `Streaming API`
+- Beside, Vault core streaming also includes `Audit API`, `Products API`, `Data Loader API` and `Payments Hub API`
+
+## Use case - Account creation process
+- Customer uses bank app to create a new bank account
+- Request is routed through bank gateway and conduct KYC/AML checks
+- Call Core API /v2/accounts to create a new account
+- Vault creates a new account, associates with a Smart Contract version and sychronously responds to service
+- Service calls Core API /v2/balances/live and acknowledges bank app that the account has been created
+- An event is created and forwarded to `Core Stream API` so that it can be sent to Kafka
+- Data warehouse pulls the data to store 
+
+## Use case - Balance transfer
+- Customer opens bank app
+- Bank app calls `/v1/balances/live` to check balance
+- Customer selects payee and amount and hits Send
+- Mid tier checks balance by calling `/v1/balances/live`
+- Mid tier `KYC` checks
+- Calls `Payment processor` to initiate payment
+- `Payment processor` sends posting requests to Postings API's request `topics` (`vault.core.postings.requests.v1`)
+- `Postings processor` creates the postings and sends response to Postings API's repsonse `topics` (`vault.core.postings.responses.v1`)
+- `Payment processor` sends request to `Notification orchestration` to send notificatons to customer that the payment is sucessful
+
+## Creating and managing Kafka topics and partitions
+- A topic can have multiple or 0 partitions
+- Partitions can be created using `vault-topic-manager` deployment
+- The topic manager has its own API to config a topic and its partitions in a `.proto` file
+- The .proto file is then ingested and applied to the Kafka cluster
+- All messages with the same partition key is stored in the same partition
+- The max number of consumers consuming from a topic = the number of partitions
+- By default, each topic has 6 partitions
+- 
