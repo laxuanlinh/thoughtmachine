@@ -993,11 +993,64 @@ resources:
 - `Payment processor` sends request to `Notification orchestration` to send notificatons to customer that the payment is sucessful
 
 ## Creating and managing Kafka topics and partitions
+- There are at least 3 brokers and 1 Zookeeper
 - A topic can have multiple or 0 partitions
 - Partitions can be created using `vault-topic-manager` deployment
 - The topic manager has its own API to config a topic and its partitions in a `.proto` file
 - The .proto file is then ingested and applied to the Kafka cluster
 - All messages with the same partition key is stored in the same partition
 - The max number of consumers consuming from a topic = the number of partitions
-- By default, each topic has 6 partitions
-- 
+- By default, each topic has 6 Partitions
+
+## How many partition is enough
+- Each consumer with a unique `Group ID` will consume all messages from a topic without interfering with other Groups
+- So if we have `an application` that needs to consume `all messages` from a topic, we can create a `consumer group` with multiple consumers so that these instances can consume messages in `parallel`
+- When a consumer joins a group, the `leader broker` will assign a `subset of partitions` to each consumer in the group 
+- If there are `more consumers` in a group than `partitions`, some consumers will just sit there and `consume no messages`, we can fix this by `increasing` the number of partitions (it's `not possible to decrease` the number of partitions though)
+- Having too many consumers will improve Throughput and Availability
+- However it also increases latency to replicate messages, cost, resources and boot up time when the whole cluster is down or rolling updates.
+- The optimal number of partitions depends on what we do, in some cases 6 partitions is more than enough for a topic for example failure messages that are not common
+- We can start at a low number and gradually increase it to meet the demands
+
+## Strict ordering
+- Use `event ID` to produce messages to achieve strict ordering.
+- A partition will receive all messages with the same `partition key`
+- Benefits of strict ordering are messages are `idempotent`, `higher efficency` in processing
+- Cons are not easy to reduce number of partitions, repartitioning breaks the order, not able to use DLQ and poor utilization of resources (1 partition may have way more messages than the rest)
+- Considering these disadvantages, it's recommended not to use Strict ordering, try to find other mechanisms to order messages
+
+## Kafka Configuration and Setup
+- `Vault Certified Environment Matrix` shows the compatibility between Kafka and Vault components every version
+- For authentication, Vault supports:
+  - `mTLS`: The client `dictates` the CA to sign both server side and client side certificates
+  - `SASL-SCRAM`: Scram creds are created by `Thought Machine` in Vault
+  - `OAuth`
+## Topic creation
+- There are 3 ways the client can create a topic:
+  - During installation or upgrade by `Kafka topic manager`
+  - During integration with external services as part of calling the Postings API by the `Kafka topic manager`
+  - Client can create topics manually using `Kafka topic manager`
+- When creating topics manually using Kafka topic manager, there are 2 ways:
+  - If the new topic belongs to an existing service, then just add the new topic to the existing `.proto` file, inside `/vault/infrastructure/topics` of the repo
+  - If the new topic is the `first topic` of a `new service` then create a new `.proto` file, we should create a new folder within service's namespace and put the file there. Use the `topics()` definition to generate 2 build rules, 1 is to validate topic properties and 2 is the `.proto_library`. The `.proto_library` needs to be added to the dependencies within `//vault/infrastructure/topicadmin/common_topic_manager:generate_topics_file`
+- The topic names should follow the convention that indicates 
+  - Product/domain of the service
+  - Type of API (internal or public)
+  - Type of events
+  - Type of topics (used for DLQ...)
+- Can use prefixes like vault.*
+- Other legacy prefixes are ep.* and scheduler.* are not encouraged
+
+## Topic parameters
+- `kafka_name`: name of the topic
+- `kafka_retention_period_ms`: the retention period of messages
+- `kafka_numer_of_partition`: number of partitions 
+- `kafka_safe_to_delete`: flag for safe to delete the topic or not 
+- `kafka_topic_repartition_strategy`: the strategy to repartition when we need more partitions, like how Kafka redistributes the messages
+- `kafka_test_only_topic`: whether the topic is for testing
+- `kafka_public_api_topic`: whether this is a public topic that external systems can access
+- `kafka_dlq_topic`: whether it's a DLQ topic, by default it has 1 partition and 14 day retention
+- There are 3 strategy options:
+  - `DISABLE`: default option, never repartition
+  - `IF EMPTY`: only partiton if no messages in the topic, used for consumers that require strict ordering because reducing or increasing means delete the whole topic and recreate that topic with a number of partitions
+  - `ALWAYS`: always safe to repartition
