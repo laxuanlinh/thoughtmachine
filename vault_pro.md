@@ -1030,9 +1030,10 @@ resources:
   - During installation or upgrade by `Kafka topic manager`
   - During integration with external services as part of calling the Postings API by the `Kafka topic manager`
   - Client can create topics manually using `Kafka topic manager`
-- When creating topics manually using Kafka topic manager, there are 2 ways:
+- When creating topics manually using `Kafka topic manager`, there are 2 ways:
   - If the new topic belongs to an existing service, then just add the new topic to the existing `.proto` file, inside `/vault/infrastructure/topics` of the repo
   - If the new topic is the `first topic` of a `new service` then create a new `.proto` file, we should create a new folder within service's namespace and put the file there. Use the `topics()` definition to generate 2 build rules, 1 is to validate topic properties and 2 is the `.proto_library`. The `.proto_library` needs to be added to the dependencies within `//vault/infrastructure/topicadmin/common_topic_manager:generate_topics_file`
+- `Kafka topic manager` can `reconcile` with topics by going through the `.proto` files but `ACL` (Access Control List) has to be enabled
 - The topic names should follow the convention that indicates 
   - Product/domain of the service
   - Type of API (internal or public)
@@ -1045,7 +1046,7 @@ resources:
 - `kafka_name`: name of the topic
 - `kafka_retention_period_ms`: the retention period of messages
 - `kafka_numer_of_partition`: number of partitions 
-- `kafka_safe_to_delete`: flag for safe to delete the topic or not 
+- `kafka_safe_to_delete`: flag for safe to delete the topic or not, used for deprecated topics
 - `kafka_topic_repartition_strategy`: the strategy to repartition when we need more partitions, like how Kafka redistributes the messages
 - `kafka_test_only_topic`: whether the topic is for testing
 - `kafka_public_api_topic`: whether this is a public topic that external systems can access
@@ -1054,3 +1055,28 @@ resources:
   - `DISABLE`: default option, never repartition
   - `IF EMPTY`: only partiton if no messages in the topic, used for consumers that require strict ordering because reducing or increasing means delete the whole topic and recreate that topic with a number of partitions
   - `ALWAYS`: always safe to repartition
+## Dead Letter queue
+- Errors are classified as `Transient` (auto retries) and `Non-Transient` (no retries)
+- Access to DLQ should be strictly controlled
+- Messages may contain PII in their bodies and error output
+- All DLQ topics have suffix `.dlq` or `.failure` in their names
+- We prioritize Non-Transient errors first because these are not retries
+- Transient errors also need to be taken care of because they may retry indefinitely
+- Steps to recover from a error message:
+  - Locate the message: using Prometheus to see the error message in the DLQ
+  - Access failure reason: we must do this within the retention timeframe
+  - Investigate and identify the root cause of failure
+  - Instigate remedial actions to correct the error
+  - Replay the event
+- If the message is in protobuf format, we need to deseialize it first 
+  - Determine the .proto file for deserializing 
+  - Go to documentation for the specific DLQ 
+  - Find the message type under "What message has been sent to the DLQ?"
+  - Find the .proto file that contains the message type
+  - The line <value> is the message type
+  - Locate the message
+```zsh
+protoc --decode=test_package.TestMessage path_to_proto/test.proto
+```
+- The `test_package` is the package name, which is defined in the test.proto file
+- The `TestMessage` is the message type
