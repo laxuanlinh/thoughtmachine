@@ -1151,3 +1151,13 @@ protoc --decode=test_package.TestMessage path_to_proto/test.proto
   ```
 
 ## Supervisor contracts
+6-7 smart contract
+casa, 
+build function, test, fix bug (run schedule), analyze, remediate, 
+isolated, don't know about end to end, QA knows, if issues then we don't know, we can only fix the smart contract
+citrix secure access to access gft env
+4.6
+account creation API
+account get API
+account update API status 
+accountupdate get API
