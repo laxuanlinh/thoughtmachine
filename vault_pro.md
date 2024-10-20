@@ -1080,3 +1080,74 @@ protoc --decode=test_package.TestMessage path_to_proto/test.proto
 ```
 - The `test_package` is the package name, which is defined in the test.proto file
 - The `TestMessage` is the message type
+
+# Advanced Smart Contract
+## Smart Contracts API requirements
+- Contracts API provides a set of common functions 
+  - Hook
+  - Parameters
+  - Directives: commands that are result from the execution of a Smart Contract hook
+  - Requirements: data that Smart Contracts have access to during execution
+- The type of hook determines what requirement data it has access to
+- Data can be retrieved as time series, which allows hooks to retrieve the latest data or of a given time in the past
+- `Balances` are stored as time series and can be fetched as part of this time-series
+- `effective_datetime` is when the hook is supposed to execute
+- Strings like `1 day`, `2 months`, `3 years` are durations starting from the `effective_datetime` to the past
+- `latest` means the time-series of the `effective_datetime`
+- `live` modifier when used with other range specifier fetches the most current data rather than the data at the `effective_datetime`
+- Let say we have a hook to run at 12:00AM but it's delayed til 1AM
+  - `effective_datetime` = 12:00AM because this is time time when the hook is supposed to run
+  - `1 month` = all values between 12:00AM - 1 month
+  - `2 years` = all values between 12:00AM - 2 years
+  - `latest` = the value as of 12:00AM
+  - `latest live` = the latest value as of 1:00AM
+  - `1 day live` = all values 1:00AM - 1 day
+- `Balances` can be used to check if the account has any live balance
+- `Postings` are fetched similarly to `Balances`, according to their `value_timestamp`
+- Flags and parameters are stored as time-series and can be declared and access using `@requires`
+- `last_execution_datetime` of a hook can also be accessed with `@requires`
+
+## Effective date
+- Most hooks are injected with effective_datetime which is the time when the event is triggered
+- In `scheduled_event_hook`, it's the time the schedule is set to run
+- In `pre_posting_hook` and `post_posting_hook`, it's the value_timestamp of the posting
+- In `pre_parameter_hook` and `post_parameter_hook`, it's the timestamp described in the API call
+- In `derived_parameter_hook`, it's from the account details
+
+## Performance requirements
+- Only fetch the necesaary data, for example if we only want the data at the end of day, `latest` is sufficient compared to `latest live`
+- `Parameters` and `flags` are fetched `entirely` so only fetch them if necessary
+
+## Scheduler
+- Scheduler service sits within the kernel of Vault Core and triggers events for Smart Contracts
+- The scheduler service creates jobs for schedulers' clients to execute their tasks, these jobs are created according to definitions in the `activation_hook`
+- By default, Smart Contracts use `UTC` as timezone but this can be overriden by defining the variable `events_timezone`
+- To localize all input dates and times, we can use function `.astimezone(tz=ZoneInfo("timezone name"))`
+- `Schedule Groups` are groups of schedules that run in order and can be blocked if the previous schedule has not finished
+- One example is when we want a schedule to use the result of its previous schedules like accrued must occur before capitalization
+- `Schedule Tags` are events that provide updates on the outcome of a set of schedules identified by a `Tag`
+- The collection of all schedules with the same tag is called `Schedule Operation`
+- `Schedule Tags` can be used to check if a schedule has finished across all accounts for example when interest payments are all executed across current and saving accounts
+- Example: given 1000 customer accounts
+  - Each current account has a schedule group that consists of `ACCRUE_INTEREST` and `APPLY_INTEREST` events 
+  - `APPLY_INTEREST` can only run when `ACCRUE_INTEREST` has `completed`
+  - Once `APPLY_INTEREST` in all `1000` customer accounts has `completed`, a schedule tag with value `INTEREST_PAID` is streamed from Kafka to all downstream services, meaning all Smart Contracts of this version have applied the interest
+- When we have `2 events` in a `Schedule Group` and one of them `fails` then the following event `will not trigger` and the `Schedule Group` will not run the `next day`.
+- It will also stream an error even through Kafka to trigger a `workflow` to handle calculation this `manually`
+
+## Calendar service
+- Calendar service allows user to define lists of days such as bank holidays to be used by Vault components via Core API
+- Calendar may emit periodic events to note a change in cycle, which are called `Calendar Periods`
+- Components can use this `monotonically` (either never decrease or never increase) increasing period identifier to reference the `window of time` in which they have to process an `instruction`
+- We can use `@requires(calendar="effective_date - 1 month")` to fetch `Calendar Events` information
+- To use Calendar, 
+  - First we need to use the endpoint `/v1/calendar` to create a calendar object `HOLIDAYS`
+  - Then we create a Calendar Event object via `/v1/calendar-event` API for the `HOLIDAYS` calendar
+  - And finally in Smart Contract, we can check if the posting is in the HOLIDAYS period to give the customer extra reward points
+  ```python
+    ph_period = vault.get_calendar_events(calendar_ids=["HOLIDAYS"])
+    if date.today() in ph_period:
+        reward_points *= 2
+  ```
+
+## Supervisor contracts
