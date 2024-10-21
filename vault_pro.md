@@ -1151,13 +1151,32 @@ protoc --decode=test_package.TestMessage path_to_proto/test.proto
   ```
 
 ## Supervisor contracts
-6-7 smart contract
-casa, 
-build function, test, fix bug (run schedule), analyze, remediate, 
-isolated, don't know about end to end, QA knows, if issues then we don't know, we can only fix the smart contract
-citrix secure access to access gft env
-4.6
-account creation API
-account get API
-account update API status 
-accountupdate get API
+- Supervisor contracts allow multiple accounts to `communicate` and `share` common financial behavior
+- The same way Vault accounts are backed by `Smart Contracts`, `Plans` are backed by `Supervisor Contracts`
+- `Supervisor contracts` can `modify` or `extend` the behavior of `accounts` that join the `Plan`
+- Supervisor contracts are useful in some use cases:
+    - `Concentration Risk`: aggregated balance of a customer can be limited by the total balanaces of multiple accounts
+    - `Offset Account`: change the interest rate on 1 account based on balance on another account
+    - `Reward bundles`: rewards based on the total balances across multiple accounts
+    - `Syndicate loan`: sharing profit on a bundle of loans with a third party
+- Supervisee contracts (the account's smart contract) logic `holds no` Plan or supervison logic, instead the logic is captured in `Supervisor Contract Logic`
+- The supervisor contracts can `intercept` and `override` any hooks of the supervisee contracts
+- The supervisor contracts have access to balances and parameters of the supervisee contracts
+- Plan parameters are equivalent to instance parameters, are stored in time-series and can be set during plan definition or updates
+
+## Supervisor contract hooks
+- Depends on the version, there are 3 hooks that can be overriden by supervisor contracts
+- In transcript
+    - execution_schedules
+    - post_posting_code
+    - scheduled_code
+- In docs v4
+    - scheduled_event_hook
+    - post_posting_hook
+    - pre_posting_hook
+- Also in docs v3:
+    - scheduled_code
+    - post_posting_code
+    - pre_posting_code
+- When a smart contract is supervised, its directives are not immediately instructed but intercepted by the supervisor contract and it decides whether to alter them or not
+
