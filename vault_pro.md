@@ -1165,11 +1165,19 @@ protoc --decode=test_package.TestMessage path_to_proto/test.proto
 - Plan parameters are equivalent to instance parameters, are stored in time-series and can be set during plan definition or updates
 
 ## Supervisor contract hooks
+- There are 2 ways a Supervisor Contract execution can be triggered, either via Plan or Account
+- When Plan Scheduled Event is triggered, all Supervisor Contracts of that Plan are executed and all supervisee's hooks are executed as well
+    - `activation_hook`: via Plan (cannot execute supervisees)
+    - `conversion_hook`: via Plan (cannot execute supervisees)
+    - `scheduled_event_hook`: via Plan
+- Another way is when an Account receives postings and its hooks are supervised by Plan's Supervisor Contract then both Account's and Plan's hooks are executed
+    - `pre_posting_hook`: via Account
+    - `post_posting_hook`: via Account
+- There are 3 modes of supervision that define the behavior when a hook is supervised
+    - `UNSUPERVISED`: only account's hook is executed, Plan's hook is ignored
+    - `INVOKED`: the account's hook is executed first, then the directive is passed to Plan's hook to execute. For Supervisor `scheduled_event_hook`, if `supervisee_hook_directives` is required then it's automatically `INVOKED`
+    - `OVERRIDE`: only the Plan's hook is executed, account's hook is ignored
 - Depends on the version, there are 3 hooks that can be overriden by supervisor contracts
-- In transcript
-    - execution_schedules
-    - post_posting_code
-    - scheduled_code
 - In docs v4
     - scheduled_event_hook
     - post_posting_hook
@@ -1179,4 +1187,37 @@ protoc --decode=test_package.TestMessage path_to_proto/test.proto
     - post_posting_code
     - pre_posting_code
 - When a smart contract is supervised, its directives are not immediately instructed but intercepted by the supervisor contract and it decides whether to alter them or not
+```python
+supervised_smart_contracts = [
+    SmartContractDescriptor(
+        alias = 'alias1',
+        smart_contract_version_id = '{smart_contract_version_id}',
+        supervise_post_posting=True
+    )
+]
+@requires(balances='latest live', scope='all')
+def post_posting_hook(vault, hook_arguments):
+```
 
+## Example - Offset Mortgage
+- Given a Mortgage Smart Contract with schedules: transfer_due and yearly_fee
+- A Saving Account Smart Contract with schedules: accrue_interest and apply_interest
+- We create a Supervisor Contract version from a Supervisor Contract
+- From the Supervisor Contract, we create a Plan, which is an instance of Supervisor Contract version
+- We create a Plan Update to associate 2 accounts with the plan so the scheduled_code hook can be overwritten
+- We can implement logic such as:
+    - Reducing the interest rate of Mortgage Account based on the balances of Saving Account
+    - Increasing the interest rate of the Saving Account based on how large the Mortgage is
+
+## Versioning and Conversion
+- Any change made to the Smart Contract requires a version change
+- Changes to parameters do not require version changes
+- Account upgrade can be done via Core API or CLU
+- We can upgrade all accounts of 1 version to a new version or we can upgrade individual 
+- When upgrading and the account has parameters that don't exist in the previous version then they will take `default_value`
+- When a new version is deployed, it becomes the `current version`, if no version is deployed then it stays with the existing version
+- No new version of balance is created or removed during conversion
+- If we fetch a balance that only exists in the new version, Vault will return 0
+- If we accept a posting to a balance that doesn't exist, Vautl will create it
+- However for schedules, when we upgrade to a new version, all schedules are recreated by default
+- We can specify to retain the old schedules but we need to make sure the schedule name and event groups stay the same
