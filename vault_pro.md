@@ -1293,4 +1293,56 @@ def post_posting_hook(vault, hook_arguments):
 - Small business digital lending that allows fully or partially automated credit decisioin with funds released the same day
 - This helps increase customer engagement, faster onboarding and reduce manual processing
 - Integrated using Vault API
-- 
+
+# Smart Contract from Requirements to Delivery 
+## Overview of Requirement gathering process
+- There are a few steps in Requirement gathering
+- `Product Discovery`: conceptualization, determine product features, use `Product Library Gap` template if similar to a product in the library, Moscow prioritization `must have`, `should have` and `could have` category
+- `Product scope and planning`: define scope, prioritize, signoff scope with stakeholders
+- `Requirement refinement`: create epics, stories, acceptance criteria, sprint planning
+- `Product build and test`: each story is developed and tested, test scripts are written, documented and demo
+- `Change requests`: bank raises a change request, refine the request, create new epics and user stories, develop
+## Best practice - Gap analysis
+- `Gap analysis` is the process that find gaps and similarities between the product and a product in the Product Library
+- Most products in the library have a `gap template`
+- We can determine which features are already implemented, which require slight adjustmenet
+- `Gap analysis` allows us to focus on the features and not go sidetrack outside of Vault's capabilities
+- It also provides a simple scope and summary and allows stakeholders to have a complete view of the broken down features
+- Steps to do `gap analysis`:
+  - Determine if the feature is `within scope`
+  - Determind if it's a `functionality gap` or it's `already implemented` in the library
+  - Determine the `Moscow` priority of each item
+  - Determine the feature details, user stories and acceptance criteria for each feature, work with the bank when each feature and criteria is `individually confirmed`
+## Best practice - Scope and Planning
+- There are 3 outcomes we want from scoping the project
+  - Finalized scope based on priorities
+  - Initial plan on which features are developed in each sprint
+  - Signoff
+## Best practice - Requirement refinement
+- A user story should contains 3 statements
+  - High level statement: a sentence that describes what the bank wants
+  - Business value statement: a sentence that describe the value that the user story provides
+  - Acceptance criteria: describes the details `Given`, `When`, `Then`, `Example`
+- We need to consider if the feature should be handled by Vault or external system, does Vault offer a better solution for this, how can it be tested and what would trigger this feature from outside.
+## Best practice - Build and test 
+- The BAs need to ensure that developers understand and utilize Smart Contract correctly
+- Features need to be tested again acceptance criteria
+- BAs are also responsible for demo and iteratively adjust scope and ACs in response to new information
+- BAs raise and manage change requests
+- When using Smart Contracts, we need to determine what belongs to a smart contract: `financial logic`, `account lifecycle` and `financial side effects`
+- What to keep out of Smart Contracts including:
+  - `Decisioning`: decisions that tweak the financial behavior such as what interest rate to apply on an account or product should be determined externally so that Smart Contracts and digest that decision, other complex decisioining that is based on mulitple factors like KYC 
+  - `External API calls`
+  - `Hierachy and categorization`: parameters should not be used to categorized products or to put it in a hierachy 
+- Examples of cases that Smart Contracts can handle:
+  - Interest accrued/paid
+  - Service fee and overdraft
+  - Rebalancing to different account addresses based on business rules
+  - Base rate and LIBOR rate changes
+  - Tier-based accounts for interest calculations
+- Example of cases that Smart Contracts should not handle:
+  - Complex fee structures not linked to postings
+  - Eligibility rules for account opening
+  - Statement generation
+  - Complex pricing structures
+  - Logic for mass data breach, KYC, complex decisioning
