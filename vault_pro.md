@@ -1259,7 +1259,7 @@ def post_posting_hook(vault, hook_arguments):
 - Vault integrations offers client to integrate with selected vendors to cover some use cases
 - These integrations contain Thought Machine approved code, clear and up-to-date documentation
 - However these are not production ready and not maintained by Thought Machine on behalf of a client
-- Only Thought Machine, Delivery Partners and Partners can build integration
+- Only `Thought Machine`, `Delivery Partners` and `Partners` (training sandbox and integration sandbox) can build integration
 - To validate the integration, Thought Machine requires
   - Use cases
   - Architecture diagram
@@ -1346,3 +1346,35 @@ def post_posting_hook(vault, hook_arguments):
   - Statement generation
   - Complex pricing structures
   - Logic for mass data breach, KYC, complex decisioning
+# Real time analytics
+## Architecture
+- There are 2 options when it comes to architecture: `Lambda` and `Kappa`
+## Lambda architecture
+- Uses 2 separate data processing systems for different type of workloads
+- `Batch data processing`: processes data in `large batch` and put them in a `centralized` data warehouse or file system
+- `Stream processing`: processes data in `real time` and put them in `distributed` file systems
+- Lambda architecture typically has `3 layers`:
+  - Data ingestion layer
+  - Simultanious batch (store in warehouse or ODS) and real time processing (Kafka, Storm, Flink)
+  - Serving data to users in real-time, users can use SQL or HiveQL
+
+## Kappa architecture
+- Treats everything as streams
+- Only has 1 layer which:
+  - Ingests data and feeds data to both `Real time processor` and `Long term storage` in real time
+  - `Real time processor` running on Kafka to stream data to downstream system like BI, fraud detection...
+  - A full copy of all data is also captured at `Long term storage` like data lake or warehouse for BI, AI...
+  - No separate serving layer, the streaming layer also serve data via SQL
+- More suitable for modern cloud environments than Lambda
+
+## Comparison
+- Scalability: both `Kappa` and `Lambda` are scalable
+- Fault tolerance: `Kappa` is `more fault-tolerant` than `Lambda` thanks to its 1 layer architecture
+- Complexity: `Kappa` is `simpler` while `Lambda` has `3 layers` which is more complex
+- Data management: `Kappa` is more `streamlined` regarding data pipelines, it can also handle large amount of data just like `Lambda`
+- While popular, Lambda batch processing can only process `bound data` which is finite and predictable while nowadays data is more `unbound`
+
+## Streaming API overview
+- Vault has 2 types of API that enable interaction with the system and data within it
+- When a posting is made to Vault, Streaming API streams the event to downstream systems where it's enriched and fed to machine learning models and to notification engine. The notif engine distribute the event to various channels
+- Vault supports Fraud detection models built by third party, rule-based, heuristic or learned models are treated and deployed the same to microservices
