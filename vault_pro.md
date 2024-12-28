@@ -1446,3 +1446,59 @@ def post_posting_hook(vault, hook_arguments):
 - Step 6: We have a `daily reconciliation job` running to `compare` the `outputs` between Legacy and Vault Core, makes sure that the outputs are similar, for example Statements
 - Step 7: While Legacy is still running and being the operational master, bank decides that it's time to switch to Vault Core 
 - Step 8: Vault is now the only system that is running and becomes master
+
+# Postings Migration API
+## What is Postings Migration API?
+- Not sure what is spoken in the video but sounds like an API to migrate legacy transactions that do not need certain checks
+- A transaction is not a posting but a 1 or more posting instructions that logically work hand in hand from start to end
+- The most performant way to migrate postings is to load a large number of PIBs as 1 or multiple tranches.
+- Once these PIBs are loaded, they are validated and accepted, if a PIB is accepted then the balance is updated
+- Unlike the BAU Postings API, the `Smart Contract Execution (pre-trans-hook) and Restriction checks` do not take place
+## Postings Instruction Batch validation stages
+- `Idempotency` is used to to make sure the request is not redundant
+- `Account validation (only BAU)`: check if account exists prior to accepting a posting 
+- `Enrichment`: similar to BAU, this step fetches all PIBs that have been posted against this transaction (``??? what ???``) 
+- `Restriction checks (only BAU)`: when a transactions contains account_id or payment device token, restrictions at customer and account level are checked 
+- `Pre-transaction hook (only BAU)`: custom logic to validate transaction 
+- `Commitment to the database`
+- `Event streamed out`: ledger balance
+## Posting types allowed in Postings Migration API
+- inbound_hard_settlement
+- outbound_hard_settlement
+- custom_instruction
+- transfer `(with setup)`
+- The rest is not supported
+## Lifecycle of Postings Migration
+1. Bank extracts and transforms data
+2. Migrate data by loading data to Postings Migration API's request topic (BAU should not be used at all)
+3. Vault validates requests 
+4. PIB is rejected: a message is populated in the response topic, we should investigate the .proto file and check the docs about the error. We can fix and resubmit the PIB with a different ID
+5. Commit to ledger: receipt events are streamed out
+6. Derive new balance: balance change events are streamed out
+- Transient error: retry
+- Non-transient errors: DLQ for further investigation, usually because Vault cannot read the messages due to wrong format
+## How do Migration Postings impact balances
+- Currently, migrated posting will not be picked up by `Ledger balance services` so it won't appear in the EOD reconciliation and reporting
+- When we only migrate part of historic postings, for example only 2 most recent years, we have to first make a `Balance posting` to init the balance
+- The `Balance postings` need to skip validation by using `Custom posting instructions` or metadata (if using BAU Postings API)
+
+## How to monitor Postings Migration API progress and outcomes
+- Events when a PIB is sent to Vault: 
+  - vault.api.v1.postings.posting_instruction_batch.created
+  - Associatged DLQ: vault.core.postings.requests.dlq.v1
+- Event when a balance is created or updated: 
+  - vault.core_api.v1.balances.account_balance.events
+  - Associated DLQ: vault.migrations.balances.postings_committed.live_migration_processor.failure
+- Events that acknowledge that an account balance is changed: 
+  - vault.core_api.v1.balances.balance.events
+  - Associated DLQ: vault.migrations.balances.postings_committed.live_migration_processor.failure
+
+# Data Loader API
+- To migrate existing / backbook data into Vault's instances
+- Data must comply with defined schema and submitted via Kafka
+- Entities of Data Loader API:
+  - `Resources`: consist of 8 types of resources
+  - `Resource Batch`: collection of resources bundled together to submit to Vault
+  - `Dependencies`: the ability of a resource to be loaded on being contingent on the existence of another in Vault
+  - `Dependency Group`: group of resources logically linked by dependencies, to be loaded to Vault in an order
+- 
