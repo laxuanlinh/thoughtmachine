@@ -754,7 +754,7 @@ resources:
 ## Architecture
 - All state change events being streamed to downstream services is useful to inform them to take action for example when a new account is created, a message is sent to other services to send emails, create bank statements and issue cards
 - Vault uses Transaction Outbox pattern to ensure `at least once delivery`
-- Every events streamed to Kafka is actually recorded in a database in 2 tables `resource_table` and `journal_table`
+- Every events streamed to Kafka is actually recorded in a database in 2 tables `resource_table` and `journal_table` in 1 transaction
 - For example when a new account is created:
     - Account Service creates a commit intent to the `resource_table` in the DB
     - Account Service sends a message to Kafka and marks the event as `Delivered` in the `journal_table`

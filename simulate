@@ -1,0 +1,1241 @@
+Workflow development and testing
+On this page:
+
+Simulate Workflow Instance request
+Events
+Example: Simple transitioning
+Example: Resuming simulation
+Example: Auto firing events
+
+Simulate Workflow Instance response
+Workflow Instance Simulation Step
+State
+Triggering event
+Side effects
+Example: Simple transitioning output
+
+Simulating Workflow Instance side effects
+Event side effects
+Example: Side effect events with and without auto firing
+Ticket creation side effects
+Example: Simulating a Workflow with a Create Ticket Action
+Ticket update side effects
+Example: Simulating a Workflow with an Update Ticket Action
+Ticket closure side effects
+Example: Simulating a Workflow with a Close All Pending Tickets Action
+Callback side effects
+Example: Simulating a Workflow with a Callback Action
+Global UI side effects
+Example: Simulating a Workflow with an Add Or Replace Global UI Panels Action
+Instantiation side effects
+Example: Simulating a Workflow with an Instantiate Workflow Action
+State UI side effects
+Example: Simulating a Workflow with state UI
+Workflow simulation testing involves registering and instantiating a Workflow Definition inside an in-memory sandbox approximation of the Workflow Engine, known as the Workflow Simulator.
+
+The Workflow Simulator is provided with a Workflow Definition specification and a list of Workflow Instance Events. It will then be able to simulate the firing of those events against a Workflow Instance.
+
+The Workflow Simulator returns a list of objects describing the simulated lifecycle of the visited states and the transition paths taken.
+
+A Workflow Simulation request is made via a REST call to /v1/workflow-instances:simulate.
+
+Simulate Workflow Instance request
+At a minimum, a simulated Workflow Instance request consists of:
+
+specification - the YAML Workflow Definition specification, from which the instance will be created
+
+events - a list of Workflow Simulation Event objects to simulate being sent to the instance. At least one event is required.
+
+A request consisting of only a specification and a list of events will be instantiated into its starting state with no instantiation context and will progress until all events have been executed or an end state has been reached.
+
+If the starting state does require context, the instantiation_context field can be included in the request. It consists of a string-to-string map of key-value pairs.
+
+Alternatively, a Workflow Simulation can be started/resumed from any non-final state by populating the starting_state field.
+
+The environment_variables field, consisting of a string-to-string map of key-value pairs, can also be included in the request if the Workflow Definition is written to read environment configurations using $$(key) syntax.
+
+The auto_fire_events field can be used to specify which event side effects get simulated before the simulation of subsequent events from the events list. For the list of supported values, see the Workflows API documentation.
+
+chat_bubble
+If both of the starting_state and instantiation_context fields are included in a request, a user error will be returned.
+
+Events
+Each entry in the events field consists of:
+
+name - the name of the transition to follow
+
+context - the context provided for the actions executed by the transition (optional)
+
+Example: Simple transitioning
+This is a simplified Workflow Simulation request that simulates successfully instantiating and firing four events, progressing the instance to its end state F.
+
+code_blocks
+JSON
+{
+  "specification": "{name: 'Workflow Simulation', schema_version: 3.1.0, definition_version: 1.0.0, starting_state: A, end_states: [H, F], states: {A: {display_name: A, transitions: [{to: B, trigger: AtoB}, {to: C, trigger: AtoC}]}, B: {display_name: B, transitions: [{to: D, trigger: BtoD}]}, C: {display_name: C, transitions: [{to: E, trigger: CtoE}]}, D: {display_name: D, transitions: [{to: E, trigger: DtoE}]}, E: {display_name: E, transitions: [{to: F, trigger: EtoF}, {to: G, trigger: EtoG}]}, F: {display_name: F}, G: {display_name: G, transitions: [{to: H, trigger: GotH}]}, H: {display_name: H}}}",
+  "instantiation_context": {},
+  "environment_variables": {},
+  "events": [
+    {
+      "name" : "AtoB",
+       "context": {}
+    },
+    {
+      "name" : "BtoD",
+      "context": {}
+    },
+    {
+      "name" : "DtoE",
+      "context": {}
+    },
+    {
+      "name" : "EtoF",
+      "context": {}
+    }
+  ]
+}
+chat_bubble
+In the above example, the instantiation event and all successive events are fired with no event context. If context is required, populate either the instantiation_context field in the request or the context field in the events.
+
+Example: Resuming simulation
+This example simulates the same Workflow Definition as the previous example. However, this simulation begins from state D and simulates only a small section of the Workflow.
+
+code_blocks
+JSON
+{
+  "specification": "{name: 'Workflow Simulation', schema_version: 3.1.0, definition_version: 1.0.0, starting_state: A, end_states: [H, F], states: {A: {display_name: A, transitions: [{to: B, trigger: AtoB}, {to: C, trigger: AtoC}]}, B: {display_name: B, transitions: [{to: D, trigger: BtoD}]}, C: {display_name: C, transitions: [{to: E, trigger: CtoE}]}, D: {display_name: D, transitions: [{to: E, trigger: DtoE}]}, E: {display_name: E, transitions: [{to: F, trigger: EtoF}, {to: G, trigger: EtoG}]}, F: {display_name: F}, G: {display_name: G, transitions: [{to: H, trigger: GotH}]}, H: {display_name: H}}}",
+  "environment_variables": {},
+  "starting_state": {
+    "name": "D"
+  },
+  "events": [
+    {
+      "name" : "DtoE",
+      "context": {}
+    },
+    {
+      "name" : "EtoF",
+      "context": {}
+    }
+  ]
+}
+chat_bubble
+If any value from the global state is expected to be available beyond state D, then the global_state field (consisting of a string-to-string map of key-value pairs) must be included in the starting_state.
+
+Example: Auto firing events
+This example simulates a Workflow Definition that produces a transform event, with AUTO_FIRE_EVENT_TRANSFORM added to the auto_fire_events field.
+
+code_blocks
+JSON
+{
+  "specification": "{name: 'Workflow Simulation', schema_version: 3.1.0, definition_version: 1.0.0, starting_state: A, end_states: [B], states: {A: {display_name: A, type: transform, transform_ref: A, transitions: [{to: B, trigger: AtoB}]}, B: {display_name: B}}, transforms: {A: 'return ''AtoB'', context'}}",
+  "auto_fire_events": ["AUTO_FIRE_EVENT_TRANSFORMS"]
+}
+Simulate Workflow Instance response
+A simulated Workflow Instance response consists of an ordered list of Workflow Instance Simulation Step objects in the steps field.
+
+Each step represents a stage in the simulated lifecycle of the Workflow Instance and can be used to verify the business logic of a Workflow.
+
+Workflow Instance Simulation Step
+A Workflow Instance Simulation Step consists of:
+
+state - the overall state of the simulated Workflow Instance, immediately after simulating the transition. This can be fed back into the Simulate Workflow Instance Request to resume from this point in a new simulation.
+
+triggering_event - the event that triggered the Workflow Instance to enter this state
+
+multiple side_effect_ fields - side effects that were triggered while simulating the transition
+
+State
+The state field consists of:
+
+name - the name of the state the instance visited
+
+global_state - the contents of the global state after simulating a transition
+
+multiple ui_ fields - UI panels, actions and inputs that are displayed in this state
+
+For the specification of ui_ fields, see the Workflows API documentation. For examples, see the Side effects section.
+
+Triggering event
+The triggering_event field consists of:
+
+name - the name of the triggering event, or wf_inst if the triggering event is an instantiation event
+
+context - the context sent to the Workflow Instance
+
+Side effects
+For the specification of side_effect_ fields, see the Workflows API documentation. For examples, see the Side effects section.
+
+Example: Simple transitioning output
+The following is the Workflow Simulation response for the simple transitioning example:
+
+code_blocks
+JSON
+{
+  "steps": [
+      {
+          "triggering_event": {
+              "name" : "wf_inst",
+              "context": {}
+          },
+          "state": {
+              "name": "A",
+              "global_state": {}
+          },
+          "side_effect_events": [],
+          "side_effect_ticket_creations": [],
+          "side_effect_ticket_updates": [],
+          "side_effect_ticket_closures": [],
+          "side_effect_callbacks": [],
+          "side_effect_global_uis": [],
+          "side_effect_instantiations": [],
+          "side_effect_state_ui": {
+              "ui_panels": [],
+              "ui_actions": [],
+              "ui_inputs": []
+          },
+          "side_effect_vault_callbacks": [],
+          "side_effect_external_callbacks": []
+      },
+      {
+          "triggering_event": {
+              "name" : "AtoB",
+              "context": {}
+          },
+          "state": {
+              "name": "B",
+              "global_state": {}
+          },
+         "side_effect_events": [],
+         "side_effect_ticket_creations": [],
+         "side_effect_ticket_updates": [],
+         "side_effect_ticket_closures": [],
+         "side_effect_callbacks": [],
+         "side_effect_global_uis": [],
+         "side_effect_instantiations": [],
+         "side_effect_state_ui": {
+             "ui_panels": [],
+             "ui_actions": [],
+             "ui_inputs": []
+         },
+         "side_effect_vault_callbacks": [],
+         "side_effect_external_callbacks": []
+      },
+      {
+          "triggering_event": {
+              "name" : "BtoD",
+              "context": {}
+          },
+          "state": {
+              "name": "D",
+              "global_state": {}
+          },
+         "side_effect_events": [],
+         "side_effect_ticket_creations": [],
+         "side_effect_ticket_updates": [],
+         "side_effect_ticket_closures": [],
+         "side_effect_callbacks": [],
+         "side_effect_global_uis": [],
+         "side_effect_instantiations": [],
+         "side_effect_state_ui": {
+             "ui_panels": [],
+             "ui_actions": [],
+             "ui_inputs": []
+         },
+         "side_effect_vault_callbacks": [],
+         "side_effect_external_callbacks": []
+      },
+      {
+          "triggering_event": {
+              "name" : "DtoE",
+              "context": {}
+          },
+          "state": {
+              "name": "E",
+              "global_state": {}
+          },
+         "side_effect_events": [],
+         "side_effect_ticket_creations": [],
+         "side_effect_ticket_updates": [],
+         "side_effect_ticket_closures": [],
+         "side_effect_callbacks": [],
+         "side_effect_global_uis": [],
+         "side_effect_instantiations": [],
+         "side_effect_state_ui": {
+             "ui_panels": [],
+             "ui_actions": [],
+             "ui_inputs": []
+         },
+         "side_effect_vault_callbacks": [],
+         "side_effect_external_callbacks": []
+      },
+      {
+          "triggering_event": {
+              "name" : "EtoF",
+              "context": {}
+          },
+          "state": {
+              "name": "F",
+              "global_state": {}
+          },
+         "side_effect_events": [],
+         "side_effect_ticket_creations": [],
+         "side_effect_ticket_updates": [],
+         "side_effect_ticket_closures": [],
+         "side_effect_callbacks": [],
+         "side_effect_global_uis": [],
+         "side_effect_instantiations": [],
+         "side_effect_state_ui": {
+             "ui_panels": [],
+             "ui_actions": [],
+             "ui_inputs": []
+         },
+         "side_effect_vault_callbacks": [],
+         "side_effect_external_callbacks": []
+      }
+  ]
+}
+chat_bubble
+When a start_state is not specified in the simulation request, then the first simulation step in the response will be the instantiation event of trigger name wf_inst.
+
+Simulating Workflow Instance side effects
+Every state or transition of a Workflow Instance can trigger side effects. Side effects that were triggered by a state can be found in the relevant side effect list in a Workflow Instance Simulation Step.
+
+chat_bubble
+A step will include side effects triggered by the exit actions and transition of the previous state, and the entry actions of the current state it represents.
+
+Event side effects
+
+Ticket creation side effects
+
+Ticket update side effects
+
+Ticket closure side effects
+
+Callback side effects
+
+Global UI side effects
+
+Instantiation side effects
+
+State UI side effects
+
+Event side effects
+Event side effects are events produced by a Workflow Instance. These include transforms, technical errors and expiry events.
+
+They are unique in that they can be simulated as part of a Workflow Instance Simulation by populating the auto_fire_events field in the simulation request with the required event types.
+
+Example: Side effect events with and without auto firing
+The following is the response for the auto firing events example, where auto_fire_events includes AUTO_FIRE_EVENT_TRANSFORMS and the simulated state contains a transform:
+
+code_blocks
+JSON
+{
+    "steps": [
+        {
+            "state": {
+                "name": "A",
+                "global_state": {}
+            },
+            "triggering_event": {
+                "name": "wf_inst",
+                "context": {}
+            },
+            "side_effect_events": [
+                {
+                    "name": "AtoB",
+                    "context": {},
+                    "target_is_self": true
+                }
+            ],
+            "side_effect_ticket_creations": [],
+            "side_effect_ticket_updates": [],
+            "side_effect_ticket_closures": [],
+            "side_effect_callbacks": [],
+            "side_effect_global_uis": [],
+            "side_effect_instantiations": [],
+            "side_effect_state_ui": {
+                "ui_panels": [],
+                "ui_actions": [],
+                "ui_inputs": []
+            },
+            "side_effect_vault_callbacks": [],
+            "side_effect_external_callbacks": []
+        },
+        {
+            "state": {
+                "name": "B",
+                "global_state": {}
+            },
+            "triggering_event": {
+                "name": "AtoB",
+                "context": {}
+            },
+            "side_effect_events": [],
+            "side_effect_ticket_creations": [],
+            "side_effect_ticket_updates": [],
+            "side_effect_ticket_closures": [],
+            "side_effect_callbacks": [],
+            "side_effect_global_uis": [],
+            "side_effect_instantiations": [],
+            "side_effect_state_ui": {
+                "ui_panels": [],
+                "ui_actions": [],
+                "ui_inputs": []
+            },
+            "side_effect_vault_callbacks": [],
+            "side_effect_external_callbacks": []
+        }
+    ]
+}
+chat_bubble
+The target_is_self field in the response states whether the event was sent to the same Workflow Instance that is being simulated.
+
+The following is the response for the same example, but without specifying side effects to be triggered in the auto_fire_events field:
+
+code_blocks
+JSON
+{
+    "steps": [
+        {
+            "state": {
+                "name": "A",
+                "global_state": {}
+            },
+            "triggering_event": {
+                "name": "wf_inst",
+                "context": {}
+            },
+            "side_effect_events": [
+                {
+                    "name": "AtoB",
+                    "context": {},
+                    "target_is_self": true
+                }
+            ],
+            "side_effect_ticket_creations": [],
+            "side_effect_ticket_updates": [],
+            "side_effect_ticket_closures": [],
+            "side_effect_callbacks": [],
+            "side_effect_global_uis": [],
+            "side_effect_instantiations": [],
+            "side_effect_state_ui": {
+                "ui_panels": [],
+                "ui_actions": [],
+                "ui_inputs": []
+            },
+            "side_effect_vault_callbacks": [],
+            "side_effect_external_callbacks": []
+        }
+    ]
+}
+The following Workflow has an expiry auto-trigger:
+
+code_blocks
+YAML
+name: Workflow with expiry auto-trigger
+schema_version: 3.2.0
+definition_version: 1.0.0
+starting_state: A
+end_states: [
+  B
+]
+states:
+  A:
+    transitions:
+      - to: B
+        trigger: AtoB
+        auto_trigger_conditions:
+          schedule_expiry:
+            seconds: 20
+  B: {}
+To simulate the expiry path, i.e. the behaviour of the Workflow Instance when the state expires, we will simulate the Workflow with the following request:
+
+code_blocks
+JSON
+{
+    "specification": "...",
+    "auto_fire_events": ["AUTO_FIRE_EVENT_SCHEDULED"]
+}
+Simulating this Workflow will return the following response:
+
+code_blocks
+JSON
+{
+    "steps": [
+        {
+            "state": {
+                "name": "A",
+                "global_state": {}
+            },
+            "triggering_event": {
+                "name": "wf_inst",
+                "context": {}
+            },
+            "side_effect_events": [
+                {
+                    "name": "AtoB",
+                    "context": {},
+                    "target_is_self": true
+                }
+            ],
+            "side_effect_ticket_creations": [],
+            "side_effect_ticket_updates": [],
+            "side_effect_ticket_closures": [],
+            "side_effect_callbacks": [],
+            "side_effect_global_uis": [],
+            "side_effect_instantiations": [],
+            "side_effect_state_ui": {
+                "ui_panels": [],
+                "ui_actions": [],
+                "ui_inputs": []
+            },
+            "side_effect_vault_callbacks": [],
+            "side_effect_external_callbacks": []
+        }
+    ]
+}
+Ticket creation side effects
+Simulating a Workflow that contains a Create Ticket Action will output ticket creation side effects.
+
+Example: Simulating a Workflow with a Create Ticket Action
+The following Workflow creates a ticket:
+
+code_blocks
+YAML
+name: Workflow with create_ticket action
+definition_version: 1.0.0
+schema_version: 3.2.0
+starting_state: A
+end_states:
+  - B
+states:
+  A:
+    entry_actions:
+      create_ticket:
+        title: ${ticket_title}
+        tags: [tag_a, tag_b]
+        assigned_roles: [ops_user]
+        description: A test ticket
+        due_date: 2019-12-03T10:15:30+00:00
+        status: in_progress
+        priority: do_immediately
+        attachments:
+          - document_id: doc_id
+            document_version: doc_version
+            filename: filename
+        customer_ids: [customer_a, customer_b]
+        access_control_policies: [acp_a, acp_b]
+        ticket_ui:
+          ui_panels: []
+          ui_inputs: []
+          ui_actions: []
+        metadata:
+          key_1: value_1
+        access_control_metadata:
+          key_1:
+            - value_1
+            - value_2
+    transitions:
+      - to: B
+        trigger: AtoB
+  B: {}
+We are going to simulate it with the following request, to provide a context with the expected key:
+
+code_blocks
+JSON
+{
+    "specification": "...",
+    "instantiation_context": {"ticket_title": "An example ticket"}
+}
+Simulating this Workflow will return the following response:
+
+code_blocks
+JSON
+{
+    "steps": [
+        {
+            "state": {
+                "name": "A",
+                "global_state": {}
+            },
+            "triggering_event": {
+                "name": "wf_inst",
+                "context": {}
+            },
+            "side_effect_events": [],
+            "side_effect_ticket_creations": [
+                {
+                    "title": "An example ticket",
+                    "description": "A test ticket",
+                    "due_time": "2019-12-03T09:15:30Z",
+                    "status": "TICKET_STATUS_IN_PROGRESS",
+                    "priority": "TICKET_PRIORITY_DO_IMMEDIATELY",
+                    "tags": [
+                        "tag_a",
+                        "tab_b"
+                    ],
+                    "role_ids": [
+                        "ops-user"
+                    ],
+                    "attachment_ids": ["doc_id"],
+                    "metadata": {},
+                    "ui": {
+                        "panels": [],
+                        "actions": [],
+                        "inputs": []
+                    },
+                    "customer_ids": [
+                      "customer_a",
+                      "customer_b"
+                    ],
+                    "policy_ids": [
+                      "acp_a",
+                      "acp_b"
+                    ],
+                    "access_control_metadata": {
+                        "key_1": {
+                            "string_list": {
+                                "values": [
+                                  "value_1",
+                                  "value_2"
+                                ]
+                            }
+                        }
+                    }
+                }
+            ],
+            "side_effect_ticket_updates": [],
+            "side_effect_ticket_closures": [],
+            "side_effect_callbacks": [],
+            "side_effect_global_uis": [],
+            "side_effect_instantiations": [],
+            "side_effect_state_ui": {
+                "ui_panels": [],
+                "ui_actions": [],
+                "ui_inputs": []
+            },
+            "side_effect_vault_callbacks": [],
+            "side_effect_external_callbacks": []
+        }
+    ]
+}
+Ticket update side effects
+Simulating a Workflow that contains an Update Ticket Action will output ticket update side effects.
+
+Example: Simulating a Workflow with an Update Ticket Action
+The following Workflow creates a ticket and updates it in the transition to the subsequent step:
+
+code_blocks
+YAML
+name: Workflow with update_ticket action
+definition_version: 1.0.0
+schema_version: 3.2.0
+starting_state: A
+end_states:
+  - B
+states:
+  A:
+    entry_actions:
+      save_to_global_state:
+        context_keys:
+          - assignee_id
+      create_ticket:
+        title: Ticket title
+        "role_ids": [
+            "ops-user"
+        ],
+    transitions:
+      - to: B
+        trigger: AtoB
+        actions:
+          update_ticket:
+            assignee_id: ${assignee_id}
+            status: cancelled
+            priority: do_immediately
+  B: {}
+We are going to simulate it with the following request, to provide the expected context key and so that it progresses to state B:
+
+code_blocks
+JSON
+{
+    "specification": "...",
+    "instantiation_context": {"assignee_id": "some_user_id"},
+    "events": [{"name": "AtoB"}]
+}
+Simulating it will produce the following response:
+
+code_blocks
+JSON
+{
+    "steps": [
+        {
+            "state": {
+                "name": "A",
+                "global_state": {
+                    "assignee_id": "some_user_id"
+                }
+            },
+            "triggering_event": {
+                "name": "wf_inst",
+                "context": {
+                    "assignee_id": "some_user_id"
+                }
+            },
+            "side_effect_events": [],
+            "side_effect_ticket_creations": [
+                {
+                    "title": "Ticket title",
+                    "description": "",
+                    "due_time": null,
+                    "status": "TICKET_STATUS_OPEN",
+                    "priority": "TICKET_PRIORITY_UNKNOWN",
+                    "tags": [],
+                    "role_ids": [
+                        "ops-user"
+                    ],
+                    "attachment_ids": [],
+                    "metadata": {
+                        "assignee_id": "some_user_id"
+                    },
+                    "ui": {
+                        "panels": [],
+                        "actions": [],
+                        "inputs": []
+                    },
+                    "customer_ids": [],
+                    "policy_ids": [],
+                    "access_control_metadata": {}
+                }
+            ],
+            "side_effect_ticket_updates": [],
+            "side_effect_ticket_closures": [],
+            "side_effect_callbacks": [],
+            "side_effect_global_uis": [],
+            "side_effect_instantiations": [],
+            "side_effect_state_ui": {
+                "ui_panels": [],
+                "ui_actions": [],
+                "ui_inputs": []
+            },
+            "side_effect_vault_callbacks": [],
+            "side_effect_external_callbacks": []
+        },
+        {
+            "state": {
+                "name": "B",
+                "global_state": {
+                    "assignee_id": "some_user_id"
+                }
+            },
+            "triggering_event": {
+                "name": "AtoB",
+                "context": {}
+            },
+            "side_effect_events": [],
+            "side_effect_ticket_creations": [],
+            "side_effect_ticket_updates": [
+                {
+                    "metadata": {
+                        "assignee_id": "some_user_id"
+                    },
+                    "priority": "TICKET_PRIORITY_CRITICAL",
+                    "status": "TICKET_STATUS_CANCELLED",
+                    "assignee_id": "some_user_id"
+                }
+            ],
+            "side_effect_ticket_closures": [],
+            "side_effect_callbacks": [],
+            "side_effect_global_uis": [],
+            "side_effect_instantiations": [],
+            "side_effect_state_ui": {
+                "ui_panels": [],
+                "ui_actions": [],
+                "ui_inputs": []
+            },
+            "side_effect_vault_callbacks": [],
+            "side_effect_external_callbacks": []
+        }
+    ]
+}
+chat_bubble
+The side effect is included in the step representing state B, because the action occurs in the transition from A to B.
+
+Ticket closure side effects
+Simulating a Workflow that contains a Close All Pending Tickets Action will output ticket closure side effects.
+
+Example: Simulating a Workflow with a Close All Pending Tickets Action
+The following Workflow creates a ticket and closes it in the subsequent state if it is still open:
+
+code_blocks
+YAML
+name: Workflow with update_ticket action
+definition_version: 1.0.0
+schema_version: 3.2.0
+starting_state: A
+end_states:
+  - B
+states:
+  A:
+    entry_actions:
+      create_ticket:
+        title: Ticket title
+        "role_ids": [
+            "ops-user"
+        ],
+    transitions:
+      - to: B
+        trigger: AtoB
+  B:
+    entry_actions:
+      close_all_pending_tickets:
+          cancel: ${cancel}
+  transitions:
+    - to: C
+      trigger: BtoC
+  C: {}
+We are going to simulate it with the following request:
+
+code_blocks
+JSON
+{
+    "specification": "...",
+    "instantiation_context": {"cancel": "false"},
+    "events": [{"name": "AtoB"}]
+}
+Simulating it will produce the following response:
+
+code_blocks
+JSON
+{
+    "steps": [
+        {
+            "state": {
+                "name": "A",
+                "global_state": {
+                    "cancel": "false"
+                }
+            },
+            "triggering_event": {
+                "name": "wf_inst",
+                "context": {
+                    "cancel": "false"
+                }
+            },
+            "side_effect_events": [],
+            "side_effect_ticket_creations": [
+                {
+                    "title": "Ticket title",
+                    "description": "",
+                    "due_time": null,
+                    "status": "TICKET_STATUS_OPEN",
+                    "priority": "TICKET_PRIORITY_UNKNOWN",
+                    "tags": [],
+                    "role_ids": [
+                        "ops-user"
+                    ],
+                    "attachment_ids": [],
+                    "metadata": {
+                        "cancel": "false"
+                    },
+                    "ui": {
+                        "panels": [],
+                        "actions": [],
+                        "inputs": []
+                    },
+                    "customer_ids": [],
+                    "policy_ids": [],
+                    "access_control_metadata": {}
+                }
+            ],
+            "side_effect_ticket_updates": [],
+            "side_effect_ticket_closures": [],
+            "side_effect_callbacks": [],
+            "side_effect_global_uis": [],
+            "side_effect_instantiations": [],
+            "side_effect_state_ui": {
+                "ui_panels": [],
+                "ui_actions": [],
+                "ui_inputs": []
+            },
+            "side_effect_vault_callbacks": [],
+            "side_effect_external_callbacks": []
+        },
+        {
+            "state": {
+                "name": "B",
+                "global_state": {
+                    "assignee_id": "some_user_id"
+                }
+            },
+            "triggering_event": {
+                "name": "AtoB",
+                "context": {}
+            },
+            "side_effect_events": [],
+            "side_effect_ticket_creations": [],
+            "side_effect_ticket_updates": [],
+            "side_effect_ticket_closures": [
+                {
+                    "target_status": "TICKET_STATUS_CLOSED"
+                }
+            ],
+            "side_effect_callbacks": [],
+            "side_effect_global_uis": [],
+            "side_effect_instantiations": [],
+            "side_effect_state_ui": {
+                "ui_panels": [],
+                "ui_actions": [],
+                "ui_inputs": []
+            },
+            "side_effect_vault_callbacks": [],
+            "side_effect_external_callbacks": []
+        }
+    ]
+}
+Callback side effects
+Simulating a Workflow that contains callback actions will output callback side effects.
+
+Example: Simulating a Workflow with a Callback Action
+The following Workflow uses a Callback Action to call the ListProducts endpoint in the Core API:
+
+code_blocks
+YAML
+name: Workflow with callback action
+definition_version: 1.0.0
+schema_version: 3.2.0
+starting_state: A
+end_states:
+  - B
+states:
+  A:
+    entry_actions:
+      callback:
+        executor: core_api
+        target: products.ListProducts
+        arguments:
+          account_id: ${account_id}
+          pending_contract_id: ${contract_id}
+    transitions:
+      - to: B
+        trigger: AtoB
+  B: {}
+We are going to simulate it with the following request:
+
+code_blocks
+JSON
+{
+    "specification": "...",
+    "instantiation_context": {"account_id": "1234", "contract_id": "5678"}
+}
+Simulating it will produce the following response:
+
+code_blocks
+JSON
+{
+    "steps": [
+        {
+            "state": {
+                "name": "A",
+                "global_state": {}
+            },
+            "triggering_event": {
+                "name": "wf_inst",
+                "context": {
+                    "account_id": "1234",
+                    "contract_id": "5678"
+                }
+            },
+            "side_effect_events": [],
+            "side_effect_ticket_creations": [],
+            "side_effect_ticket_updates": [],
+            "side_effect_ticket_closures": [],
+            "side_effect_callbacks": [
+                {
+                    "executor": "CORE_API",
+                    "target": "products.ListProducts",
+                    "payload": {
+                        "account_id": "1234",
+                        "pending_contract_id": "5678"
+                    }
+                }
+            ],
+            "side_effect_global_uis": [],
+            "side_effect_instantiations": [],
+            "side_effect_state_ui": {
+                "ui_panels": [],
+                "ui_actions": [],
+                "ui_inputs": []
+            },
+            "side_effect_vault_callbacks": [],
+            "side_effect_external_callbacks": []
+        }
+    ]
+}
+Global UI side effects
+Simulating a Workflow that contains an Add Or Replace Global UI Panels Action will output global UI side effects.
+
+Example: Simulating a Workflow with an Add Or Replace Global UI Panels Action
+The following Workflow adds global UI Panels:
+
+code_blocks
+JSON
+name: Workflow with add_or_replace_global_ui_panels action
+definition_version: 1.0.0
+schema_version: 3.2.0
+starting_state: A
+end_states:
+  - B
+states:
+  A:
+    entry_actions:
+      add_or_replace_global_ui_panels:
+        - panel_id: test
+          display_name: Test
+          json_definition:
+            test:
+              test_value: '${key_a}'
+    transitions:
+      - to: B
+        trigger: AtoB
+  B: {}
+We are going to simulate it with the following request:
+
+code_blocks
+JSON
+{
+    "specification": "...",
+    "instantiation_context": {"key_a": "value_a"}
+}
+Simulating it will produce the following response:
+
+code_blocks
+JSON
+{
+    "steps": [
+        {
+            "state": {
+                "name": "A",
+                "global_state": {}
+            },
+            "triggering_event": {
+                "name": "wf_inst",
+                "context": {
+                    "key_a": "value_a"
+                }
+            },
+            "side_effect_events": [],
+            "side_effect_ticket_creations": [],
+            "side_effect_ticket_updates": [],
+            "side_effect_ticket_closures": [],
+            "side_effect_callbacks": [],
+            "side_effect_global_uis": [
+                {
+                    "ui_panels": [
+                        {
+                            "id": "test",
+                            "label": "Test",
+                            "metadata": "{\"test\":{\"test_value\":\"value_a\"}}"
+                        }
+                    ]
+                }
+            ],
+            "side_effect_instantiations": [],
+            "side_effect_state_ui": {
+                "ui_panels": [],
+                "ui_actions": [],
+                "ui_inputs": []
+            },
+            "side_effect_vault_callbacks": [],
+            "side_effect_external_callbacks": []
+        }
+    ]
+}
+Instantiation side effects
+A Workflow Instance may produce instantiation requests for other Workflow Instances. When such Workflows are simulated, the simulation output will contain instantiation side effects.
+
+Example: Simulating a Workflow with an Instantiate Workflow Action
+The following Workflow uses the Instantiate Workflow Action to instantiate a child Workflow in its first state:
+
+code_blocks
+YAML
+name: Workflow with instantiate_workflow action
+definition_version: 1.0.0
+schema_version: 3.2.0
+starting_state: A
+end_states:
+  - B
+states:
+  A:
+    entry_actions:
+      instantiate_workflow:
+        definition_id: ${definition_id}
+        definition_version: 1.0.0
+    transitions:
+      - to: B
+        trigger: AtoB
+  B: {}
+We are going to simulate it with the following request:
+
+code_blocks
+JSON
+{
+    "specification": "...",
+    "instantiation_context": {"child_definition_id": "CHILD_WORKFLOW_ID", "child_definition_version":  "1.0.0"}
+}
+Simulating it will produce the following response:
+
+code_blocks
+JSON
+{
+    "steps": [
+        {
+            "state": {
+                "name": "A",
+                "global_state": {}
+            },
+            "triggering_event": {
+                "name": "wf_inst",
+                "context": {
+                    "child_definition_id": "CHILD_WORKFLOW_ID",
+                    "child_definition_version": "1.0.0"
+                }
+            },
+            "side_effect_events": [],
+            "side_effect_ticket_creations": [],
+            "side_effect_ticket_updates": [],
+            "side_effect_ticket_closures": [],
+            "side_effect_callbacks": [],
+            "side_effect_global_uis": [],
+            "side_effect_instantiations": [
+                {
+                    "workflow_definition_id": "CHILD_WORKFLOW_ID",
+                    "workflow_definition_version": "1.0.0",
+                    "instantiation_context": {
+                        "child_definition_id": "CHILD_WORKFLOW_ID",
+                        "child_definition_version": "1.0.0"
+                    },
+                    "customer_ids": [],
+                    "cron_expression": ""
+                }
+            ],
+            "side_effect_vault_callbacks": [],
+            "side_effect_external_callbacks": []
+        }
+    ]
+}
+State UI side effects
+Simulating a Workflow that has state UI will output state UI side effects.
+
+Example: Simulating a Workflow with state UI
+The following Workflow has a state that contains UI panels, actions and inputs:
+
+code_blocks
+YAML
+name: Workflow with state UI
+definition_version: 1.0.0
+schema_version: 3.2.0
+starting_state: A
+end_states:
+  - B
+states:
+  A:
+    state_ui:
+      ui_panels:
+          - panel_id: ${panel_id}
+            display_name: ${panel name}
+            json_definition:
+              text:
+                value: some string
+      ui_actions:
+        - action_id: {$action_id}
+          event: ${action_event}
+          display_name: ${action_name}
+      ui_inputs:
+            - key: contract_template_migration_strategy
+              type: string
+              display_name: Update strategy
+              ui_inputs:
+                - key: input
+                  string_input: {}
+                  display_name: some input
+    transitions:
+      - to: B
+        trigger: AtoB
+  B: {}
+We are going to simulate it with the following request, to provide a context with the expected keys:
+
+code_blocks
+JSON
+{
+    "specification": "...",
+    "instantiation_context": {"panel_id": "panel_123", "panel_name": "A UI Panel", "action_id": "action_123", "action_event": "an_action_event", "action_name": "A UI Action"}
+}
+Simulating this Workflow will return the following response:
+
+code_blocks
+JSON
+{
+    "steps": [
+        {
+            "state": {
+                "name": "A",
+                "global_state": {}
+            },
+            "triggering_event": {
+                "name": "wf_inst",
+                "context": {
+                    "action_event": "an_action_event",
+                    "action_id": "action_123",
+                    "action_name": "A UI Action",
+                    "panel_id": "panel_123",
+                    "panel_name": "A UI Panel"
+                }
+            },
+            "side_effect_events": [],
+            "side_effect_ticket_creations": [],
+            "side_effect_ticket_updates": [],
+            "side_effect_ticket_closures": [],
+            "side_effect_callbacks": [],
+            "side_effect_global_uis": [],
+            "side_effect_instantiations": [],
+            "side_effect_state_ui": {
+                "ui_panels": [
+                    {
+                        "id": "panel_123",
+                        "label": "A UI Panel",
+                        "metadata": "{\"text\":{\"value\":\"some string\"}}"
+                    }
+                ],
+                "ui_actions": [
+                    {
+                        "id": "action_123",
+                        "event": "an_action_event",
+                        "label": "A UI Action",
+                        "inputs": [],
+                        "metadata": ""
+                    }
+                ],
+                "ui_inputs": [
+                    {
+                        "name": "contract_template_migration_strategy",
+                        "label": "Update strategy",
+                        "description": "",
+                        "optional": false,
+                        "metadata": "",
+                        "string_input": {
+                            "value": "",
+                            "default_value": "",
+                            "min_length": "",
+                            "max_length": "",
+                            "multiline": false,
+                            "regex": ""
+                        }
+                    }
+                ]
+            },
+            "side_effect_vault_callbacks": [],
+            "side_effect_external_callbacks": []
+        }
+    ]
+}
